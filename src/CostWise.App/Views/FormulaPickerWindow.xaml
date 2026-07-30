@@ -1,0 +1,59 @@
+<Window x:Class="CostWise.App.Views.FormulaPickerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding WindowTitle}"
+        Height="640" Width="920"
+        MinHeight="480" MinWidth="720"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource ContentBgBrush}">
+    <DockPanel Margin="16">
+        <DockPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="Cancel" Style="{StaticResource SecondaryButtonStyle}" Margin="0,0,8,0"
+                        Command="{Binding CancelCommand}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"/>
+                <Button Content="OK" Style="{StaticResource PrimaryButtonStyle}"
+                        Command="{Binding OkCommand}" CommandParameter="{Binding RelativeSource={RelativeSource AncestorType=Window}}"/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Select all (filtered)" Style="{StaticResource SecondaryButtonStyle}"
+                        Command="{Binding SelectAllFilteredCommand}" Margin="0,0,8,0"/>
+                <Button Content="Clear filtered" Style="{StaticResource SecondaryButtonStyle}"
+                        Command="{Binding ClearFilteredCommand}"/>
+            </StackPanel>
+        </DockPanel>
+
+        <TextBlock DockPanel.Dock="Top" Text="{Binding ErrorText}"
+                   Foreground="{StaticResource DangerBrush}"
+                   TextWrapping="Wrap"
+                   Margin="0,0,0,8"
+                   Visibility="{Binding ErrorText, Converter={StaticResource NullToVisibility}}"/>
+
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
+            <TextBlock Text="Category" VerticalAlignment="Center" Margin="0,0,8,0" Foreground="{StaticResource TextMutedBrush}"/>
+            <ComboBox Width="180" ItemsSource="{Binding CategoryFilters}" SelectedItem="{Binding SelectedCategoryFilter}" DisplayMemberPath="Name"/>
+            <TextBlock Text="Version" VerticalAlignment="Center" Margin="16,0,8,0" Foreground="{StaticResource TextMutedBrush}"/>
+            <ComboBox Width="160" ItemsSource="{Binding VersionFilters}" SelectedItem="{Binding SelectedVersionFilter}" DisplayMemberPath="Name"/>
+            <TextBlock Text="Search" VerticalAlignment="Center" Margin="16,0,8,0" Foreground="{StaticResource TextMutedBrush}"/>
+            <TextBox Width="200" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBlock Text="{Binding CountText}" VerticalAlignment="Center" Margin="16,0,0,0" Foreground="{StaticResource TextMutedBrush}"/>
+        </StackPanel>
+
+        <Border Style="{StaticResource CardBorderStyle}">
+            <DataGrid ItemsSource="{Binding FilteredRows}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      CanUserDeleteRows="False"
+                      HeadersVisibility="Column"
+                      SelectionUnit="FullRow">
+                <DataGrid.Columns>
+                    <DataGridCheckBoxColumn Header="In group" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="70" MinWidth="60"/>
+                    <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="110" MinWidth="80" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Category" Binding="{Binding CategoryName}" Width="140" MinWidth="100" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Version" Binding="{Binding SubCategoryName}" Width="100" MinWidth="70" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Size" Binding="{Binding SizeName}" Width="70" MinWidth="50" IsReadOnly="True"/>
+                    <DataGridTextColumn Header="Feed type" Binding="{Binding FeedTypeName}" Width="*" MinWidth="100" IsReadOnly="True"/>
+                </DataGrid.Columns>
+            </DataGrid>
+        </Border>
+    </DockPanel>
+</Window>

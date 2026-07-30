@@ -1,0 +1,289 @@
+<UserControl x:Class="CostWise.App.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel>
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}" Foreground="{StaticResource TextMutedBrush}" Margin="0,8,0,0"/>
+        <TabControl>
+            <TabItem Header="Feed Types">
+                <DockPanel Margin="12">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
+                        <StackPanel Width="220" Margin="0,0,8,0">
+                            <TextBlock Text="Name" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding NewFeedTypeName, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                            <Button Content="Add" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding AddFeedTypeCommand}"/>
+                            <Button Content="Save" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding SaveFeedTypeCommand}"/>
+                            <Button Content="Remove" Style="{StaticResource DangerButtonStyle}" Margin="8,0,0,0" Command="{Binding RemoveFeedTypeCommand}"/>
+                            <Button Content="Refresh" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <DataGrid x:Name="FeedTypesGrid"
+                              ItemsSource="{Binding FeedTypes}"
+                              SelectedItem="{Binding SelectedFeedType}"
+                              Loaded="FeedTypesGrid_OnLoaded"
+                              Unloaded="FeedTypesGrid_OnUnloaded">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="360" MinWidth="160"/>
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="60"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Species">
+                <DockPanel Margin="12">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
+                        <StackPanel Width="220" Margin="0,0,8,0">
+                            <TextBlock Text="Name" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding NewSpeciesName, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                            <Button Content="Add" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding AddSpeciesCommand}"/>
+                            <Button Content="Save" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding SaveSpeciesCommand}"/>
+                            <Button Content="Remove" Style="{StaticResource DangerButtonStyle}" Margin="8,0,0,0" Command="{Binding RemoveSpeciesCommand}"/>
+                            <Button Content="Refresh" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <DataGrid x:Name="SpeciesGrid"
+                              ItemsSource="{Binding SpeciesItems}"
+                              SelectedItem="{Binding SelectedSpecies}"
+                              Loaded="SpeciesGrid_OnLoaded"
+                              Unloaded="SpeciesGrid_OnUnloaded">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="360" MinWidth="160"/>
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="60"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Categories">
+                <DockPanel Margin="12">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
+                        <StackPanel Width="220" Margin="0,0,8,0">
+                            <TextBlock Text="Name" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding NewCategoryName, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                            <Button Content="Add" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding AddCategoryCommand}"/>
+                            <Button Content="Save" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding SaveCategoryCommand}"/>
+                            <Button Content="Remove" Style="{StaticResource DangerButtonStyle}" Margin="8,0,0,0" Command="{Binding RemoveCategoryCommand}"/>
+                            <Button Content="Refresh" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <DataGrid x:Name="CategoriesGrid"
+                              ItemsSource="{Binding Categories}"
+                              SelectedItem="{Binding SelectedCategory}"
+                              Loaded="CategoriesGrid_OnLoaded"
+                              Unloaded="CategoriesGrid_OnUnloaded">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="360" MinWidth="160"/>
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="60"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Sub Categories (Version)">
+                <DockPanel Margin="12">
+                    <TextBlock DockPanel.Dock="Top" Text="Version for a formula (e.g. V1, V7, V10, Trial)."
+                               Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,12">
+                        <StackPanel Width="220" Margin="0,0,8,0">
+                            <TextBlock Text="Name" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                            <TextBox Text="{Binding NewSubCategoryName, UpdateSourceTrigger=PropertyChanged}"/>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                            <Button Content="Add" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding AddSubCategoryCommand}"/>
+                            <Button Content="Save" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding SaveSubCategoryCommand}"/>
+                            <Button Content="Remove" Style="{StaticResource DangerButtonStyle}" Margin="8,0,0,0" Command="{Binding RemoveSubCategoryCommand}"/>
+                            <Button Content="Refresh" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    <DataGrid x:Name="SubCategoriesGrid"
+                              ItemsSource="{Binding SubCategories}"
+                              SelectedItem="{Binding SelectedSubCategory}"
+                              Loaded="SubCategoriesGrid_OnLoaded"
+                              Unloaded="SubCategoriesGrid_OnUnloaded">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="360" MinWidth="160"/>
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="60"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Sizes">
+                <DockPanel Margin="12">
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel Width="140" Margin="0,0,8,0">
+                                <TextBlock Text="Name" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding NewSizeName, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Width="120" Margin="0,0,8,0">
+                                <TextBlock Text="Diameter (mm)" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding NewSizeDiameter, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Width="140" Margin="0,0,8,0">
+                                <TextBlock Text="Conversion cost" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding NewSizeConversionCost, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                <Button Content="Add" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding AddSizeCommand}"/>
+                                <Button Content="Save" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding SaveSizeCommand}"/>
+                                <Button Content="Remove" Style="{StaticResource DangerButtonStyle}" Margin="8,0,0,0" Command="{Binding RemoveSizeCommand}"/>
+                                <Button Content="Refresh" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                    <DataGrid x:Name="SizesGrid"
+                              ItemsSource="{Binding Sizes}"
+                              SelectedItem="{Binding SelectedSize}"
+                              Loaded="SizesGrid_OnLoaded"
+                              Unloaded="SizesGrid_OnUnloaded">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="160" MinWidth="100"/>
+                            <DataGridTextColumn Header="Diameter (mm)" Binding="{Binding DiameterMm, UpdateSourceTrigger=PropertyChanged}" Width="140" MinWidth="90"/>
+                            <DataGridTextColumn Header="Conversion cost" Binding="{Binding ConversionCost, UpdateSourceTrigger=PropertyChanged}" Width="160" MinWidth="100"/>
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="60"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Packing">
+                <DockPanel Margin="12">
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Options available in Pricing book settings and Customized quotes."
+                               Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel Width="180" Margin="0,0,8,0">
+                                <TextBlock Text="Name" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding NewPackingName, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Width="120" Margin="0,0,8,0">
+                                <TextBlock Text="Cost" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding NewPackingCost, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                <Button Content="Add" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding AddPackingOptionCommand}"/>
+                                <Button Content="Save" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding SavePackingOptionCommand}"/>
+                                <Button Content="Remove" Style="{StaticResource DangerButtonStyle}" Margin="8,0,0,0" Command="{Binding RemovePackingOptionCommand}"/>
+                                <Button Content="Refresh" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                    <DataGrid x:Name="PackingOptionsGrid"
+                              ItemsSource="{Binding PackingOptions}"
+                              SelectedItem="{Binding SelectedPackingOption}"
+                              Loaded="PackingOptionsGrid_OnLoaded"
+                              Unloaded="PackingOptionsGrid_OnUnloaded">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="220" MinWidth="120"/>
+                            <DataGridTextColumn Header="Cost" Binding="{Binding Cost, UpdateSourceTrigger=PropertyChanged}" Width="120" MinWidth="80"/>
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="60"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Documents">
+                <DockPanel Margin="12">
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Export document cost options for Pricing and Customized quotes."
+                               Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel Width="180" Margin="0,0,8,0">
+                                <TextBlock Text="Name" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding NewDocumentName, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Width="120" Margin="0,0,8,0">
+                                <TextBlock Text="Cost" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding NewDocumentCost, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                <Button Content="Add" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding AddDocumentOptionCommand}"/>
+                                <Button Content="Save" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding SaveDocumentOptionCommand}"/>
+                                <Button Content="Remove" Style="{StaticResource DangerButtonStyle}" Margin="8,0,0,0" Command="{Binding RemoveDocumentOptionCommand}"/>
+                                <Button Content="Refresh" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                    <DataGrid x:Name="DocumentOptionsGrid"
+                              ItemsSource="{Binding DocumentOptions}"
+                              SelectedItem="{Binding SelectedDocumentOption}"
+                              Loaded="DocumentOptionsGrid_OnLoaded"
+                              Unloaded="DocumentOptionsGrid_OnUnloaded">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="220" MinWidth="120"/>
+                            <DataGridTextColumn Header="Cost" Binding="{Binding Cost, UpdateSourceTrigger=PropertyChanged}" Width="120" MinWidth="80"/>
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="60"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Additive">
+                <DockPanel Margin="12">
+                    <TextBlock DockPanel.Dock="Top"
+                               Text="Special additive cost options for Pricing and Customized quotes."
+                               Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                    <StackPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal">
+                            <StackPanel Width="180" Margin="0,0,8,0">
+                                <TextBlock Text="Name" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding NewAdditiveName, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Width="120" Margin="0,0,8,0">
+                                <TextBlock Text="Cost" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding NewAdditiveCost, UpdateSourceTrigger=PropertyChanged}"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                <Button Content="Add" Style="{StaticResource PrimaryButtonStyle}" Command="{Binding AddAdditiveOptionCommand}"/>
+                                <Button Content="Save" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding SaveAdditiveOptionCommand}"/>
+                                <Button Content="Remove" Style="{StaticResource DangerButtonStyle}" Margin="8,0,0,0" Command="{Binding RemoveAdditiveOptionCommand}"/>
+                                <Button Content="Refresh" Style="{StaticResource SecondaryButtonStyle}" Margin="8,0,0,0" Command="{Binding LoadCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                    <DataGrid x:Name="AdditiveOptionsGrid"
+                              ItemsSource="{Binding AdditiveOptions}"
+                              SelectedItem="{Binding SelectedAdditiveOption}"
+                              Loaded="AdditiveOptionsGrid_OnLoaded"
+                              Unloaded="AdditiveOptionsGrid_OnUnloaded">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name, UpdateSourceTrigger=PropertyChanged}" Width="220" MinWidth="120"/>
+                            <DataGridTextColumn Header="Cost" Binding="{Binding Cost, UpdateSourceTrigger=PropertyChanged}" Width="120" MinWidth="80"/>
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive, UpdateSourceTrigger=PropertyChanged}" Width="80" MinWidth="60"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+
+            <TabItem Header="Display">
+                <StackPanel Margin="12" MaxWidth="420" HorizontalAlignment="Left">
+                    <TextBlock Text="Cost / price decimals"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,4"/>
+                    <TextBlock Text="How many decimal places to show for RM cost, line costs, and Costing / Pricing totals. Does not change stored values."
+                               Foreground="{StaticResource TextMutedBrush}"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,12"/>
+                    <ComboBox Width="120"
+                              HorizontalAlignment="Left"
+                              ItemsSource="{Binding DecimalPlaceOptions}"
+                              SelectedItem="{Binding CostDecimalPlaces}"/>
+                    <Button Content="Save display settings"
+                            Style="{StaticResource PrimaryButtonStyle}"
+                            Margin="0,16,0,0"
+                            HorizontalAlignment="Left"
+                            Command="{Binding SaveDisplaySettingsCommand}"/>
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</UserControl>
