@@ -1,5 +1,8 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CostWise.App.Services;
@@ -7,73 +10,10 @@ using CostWise.Core.Entities;
 using CostWise.Core.Enums;
 using CostWise.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Win32;
 using FeedSize = CostWise.Core.Entities.Size;
 
 namespace CostWise.App.ViewModels;
-
-public partial class MainViewModel : ObservableObject
-{
-    private readonly Services.INavigationService _navigation;
-
-    [ObservableProperty]
-    private object? _currentView;
-
-    [ObservableProperty]
-    private string _currentPageTitle = "Formulations";
-
-    public MainViewModel(Services.INavigationService navigation)
-    {
-        _navigation = navigation;
-        _navigation.CurrentViewModelChanged += vm =>
-        {
-            CurrentView = Services.ViewModelToViewConverter.Locator?.Resolve(vm!) ?? vm;
-        };
-    }
-
-    [RelayCommand]
-    private void NavigateFormulations()
-    {
-        CurrentPageTitle = "Formulations";
-        _navigation.NavigateTo<FormulationsViewModel>();
-    }
-
-    [RelayCommand]
-    private void NavigateProduction()
-    {
-        CurrentPageTitle = "Active formulations (production)";
-        _navigation.NavigateTo<ProductionMatrixViewModel>();
-    }
-
-    [RelayCommand]
-    private void NavigateRawIngredients()
-    {
-        CurrentPageTitle = "Raw Ingredients";
-        _navigation.NavigateTo<RawIngredientsViewModel>();
-    }
-
-    [RelayCommand]
-    private void NavigateSpecifications()
-    {
-        CurrentPageTitle = "Specifications";
-        _navigation.NavigateTo<SpecParametersViewModel>();
-    }
-
-    [RelayCommand]
-    private void NavigatePricing()
-    {
-        CurrentPageTitle = "Pricing";
-        _navigation.NavigateTo<PricingViewModel>();
-    }
-
-    [RelayCommand]
-    private void NavigateSettings()
-    {
-        CurrentPageTitle = "Settings";
-        _navigation.NavigateTo<SettingsViewModel>();
-    }
-
-    public void Initialize() => NavigateFormulations();
-}
 
 public partial class NamedItemRow : ObservableObject
 {
@@ -99,6 +39,16 @@ public partial class PricingCostOptionRow : ObservableObject
     [ObservableProperty] private bool _isActive = true;
 }
 
+public partial class CurrencyRow : ObservableObject
+{
+    [ObservableProperty] private int _id;
+    [ObservableProperty] private string _code = string.Empty;
+    [ObservableProperty] private string _name = string.Empty;
+    [ObservableProperty] private decimal _kesPerUnit = 1m;
+    [ObservableProperty] private bool _isActive = true;
+    [ObservableProperty] private bool _isBase;
+}
+
 public sealed record PricingCostOptionChoice(int? Id, string Label, decimal Cost)
 {
     public static PricingCostOptionChoice None { get; } = new(null, "None", 0m);
@@ -120,7 +70,9 @@ public partial class SettingsViewModel : ObservableObject
     public ObservableCollection<PricingCostOptionRow> PackingOptions { get; } = new();
     public ObservableCollection<PricingCostOptionRow> DocumentOptions { get; } = new();
     public ObservableCollection<PricingCostOptionRow> AdditiveOptions { get; } = new();
+    public ObservableCollection<CurrencyRow> Currencies { get; } = new();
     public int[] DecimalPlaceOptions { get; } = [0, 1, 2, 3, 4];
+    public SpecParametersViewModel Nutrients { get; }
 
     [ObservableProperty] private string _newFeedTypeName = string.Empty;
     [ObservableProperty] private string _newSpeciesName = string.Empty;
@@ -135,6 +87,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private decimal _newDocumentCost;
     [ObservableProperty] private string _newAdditiveName = string.Empty;
     [ObservableProperty] private decimal _newAdditiveCost;
+    [ObservableProperty] private string _newCurrencyCode = string.Empty;
+    [ObservableProperty] private string _newCurrencyName = string.Empty;
+    [ObservableProperty] private decimal _newCurrencyRate = 1m;
     [ObservableProperty] private NamedItemRow? _selectedFeedType;
     [ObservableProperty] private NamedItemRow? _selectedSpecies;
     [ObservableProperty] private NamedItemRow? _selectedCategory;
@@ -143,15 +98,65 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private PricingCostOptionRow? _selectedPackingOption;
     [ObservableProperty] private PricingCostOptionRow? _selectedDocumentOption;
     [ObservableProperty] private PricingCostOptionRow? _selectedAdditiveOption;
+    [ObservableProperty] private CurrencyRow? _selectedCurrency;
     [ObservableProperty] private string _statusMessage = string.Empty;
     [ObservableProperty] private int _costDecimalPlaces = 2;
+    [ObservableProperty] private ImageSource? _victoryLeftLogoImage;
+    [ObservableProperty] private ImageSource? _victoryRightLogoImage;
+    [ObservableProperty] private ImageSource? _commercialLogoImage;
 
     public SettingsViewModel(IDbContextFactory<CostWiseDbContext> dbFactory, AppPreferences preferences)
     {
         _dbFactory = dbFactory;
         _preferences = preferences;
+        Nutrients = new SpecParametersViewModel(dbFactory);
         CostDecimalPlaces = preferences.CostDecimalPlaces;
+        RefreshBrandingPaths();
         _ = LoadAsync();
+    }
+
+    private void RefreshBrandingPaths()
+    {
+        VictoryLeftLogoImage = LoadImage(BrandingLogoStore.GetPath(BrandingLogoStore.VictoryLeft));
+        VictoryRightLogoImage = LoadImage(BrandingLogoStore.GetPath(BrandingLogoStore.VictoryRight));
+        CommercialLogoImage = LoadImage(BrandingLogoStore.GetPath(BrandingLogoStore.Commercial));
+    }
+
+    private static ImageSource? LoadImage(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return null;
+        var bmp = new BitmapImage();
+        bmp.BeginInit();
+        bmp.CacheOption = BitmapCacheOption.OnLoad;
+        bmp.UriSource = new Uri(path, UriKind.Absolute);
+        bmp.EndInit();
+        bmp.Freeze();
+        return bmp;
+    }
+
+    [RelayCommand]
+    private void UploadBrandingLogo(string? slot)
+    {
+        if (string.IsNullOrWhiteSpace(slot)) return;
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Image files|*.png;*.jpg;*.jpeg|All files|*.*",
+            Title = "Select logo"
+        };
+        if (dialog.ShowDialog() != true) return;
+        BrandingLogoStore.SetFromFile(slot, dialog.FileName);
+        RefreshBrandingPaths();
+        StatusMessage = "Logo updated.";
+    }
+
+    [RelayCommand]
+    private void ClearBrandingLogo(string? slot)
+    {
+        if (string.IsNullOrWhiteSpace(slot)) return;
+        BrandingLogoStore.Clear(slot);
+        RefreshBrandingPaths();
+        StatusMessage = "Logo cleared.";
     }
 
     [RelayCommand]
@@ -196,6 +201,27 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         await LoadPricingCostOptionsAsync(db);
+        await LoadCurrenciesAsync(db);
+    }
+
+    private async Task LoadCurrenciesAsync(CostWiseDbContext db)
+    {
+        Currencies.Clear();
+        foreach (var item in await db.Currencies
+                     .OrderBy(x => x.SortOrder)
+                     .ThenBy(x => x.Code)
+                     .ToListAsync())
+        {
+            Currencies.Add(new CurrencyRow
+            {
+                Id = item.Id,
+                Code = item.Code,
+                Name = item.Name,
+                KesPerUnit = item.KesPerUnit,
+                IsActive = item.IsActive,
+                IsBase = item.IsBase
+            });
+        }
     }
 
     private async Task LoadPricingCostOptionsAsync(CostWiseDbContext db)
@@ -592,6 +618,138 @@ public partial class SettingsViewModel : ObservableObject
     private async Task RemoveAdditiveOptionAsync() =>
         await RemovePricingCostOptionAsync(SelectedAdditiveOption, "additive option");
 
+    [RelayCommand]
+    private async Task AddCurrencyAsync()
+    {
+        var code = NewCurrencyCode.Trim().ToUpperInvariant();
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            StatusMessage = "Currency code is required.";
+            return;
+        }
+
+        if (NewCurrencyRate <= 0m)
+        {
+            StatusMessage = "KES per unit must be greater than zero.";
+            return;
+        }
+
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        if (await db.Currencies.AnyAsync(c => c.Code.ToLower() == code.ToLower()))
+        {
+            StatusMessage = $"Currency code '{code}' already exists.";
+            return;
+        }
+
+        var maxOrder = await db.Currencies.Select(c => (int?)c.SortOrder).MaxAsync() ?? -1;
+        db.Currencies.Add(new Currency
+        {
+            Code = code,
+            Name = string.IsNullOrWhiteSpace(NewCurrencyName) ? code : NewCurrencyName.Trim(),
+            IsBase = false,
+            KesPerUnit = NewCurrencyRate,
+            IsActive = true,
+            SortOrder = maxOrder + 1
+        });
+
+        try
+        {
+            await db.SaveChangesAsync();
+            NewCurrencyCode = string.Empty;
+            NewCurrencyName = string.Empty;
+            NewCurrencyRate = 1m;
+            StatusMessage = "Currency added.";
+            await LoadAsync();
+        }
+        catch (DbUpdateException)
+        {
+            StatusMessage = "Add failed. Currency code must be unique.";
+        }
+    }
+
+    [RelayCommand]
+    private async Task SaveCurrencyAsync()
+    {
+        if (Currencies.Count == 0) return;
+
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var byId = await db.Currencies.ToDictionaryAsync(x => x.Id);
+        foreach (var row in Currencies)
+        {
+            if (!byId.TryGetValue(row.Id, out var entity)) continue;
+
+            if (string.IsNullOrWhiteSpace(row.Code))
+            {
+                StatusMessage = "Every currency needs a code.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(row.Name))
+            {
+                StatusMessage = "Every currency needs a name.";
+                return;
+            }
+
+            var code = row.Code.Trim().ToUpperInvariant();
+            if (!entity.IsBase && row.KesPerUnit <= 0m)
+            {
+                StatusMessage = $"KES per unit for {code} must be greater than zero.";
+                return;
+            }
+
+            entity.Code = code;
+            entity.Name = row.Name.Trim();
+            entity.KesPerUnit = entity.IsBase ? 1m : row.KesPerUnit;
+            entity.IsActive = row.IsActive;
+        }
+
+        try
+        {
+            await db.SaveChangesAsync();
+            StatusMessage = $"Saved {Currencies.Count} currency/currencies.";
+            await LoadAsync();
+        }
+        catch (DbUpdateException)
+        {
+            StatusMessage = "Save failed. Currency codes must be unique.";
+        }
+    }
+
+    [RelayCommand]
+    private async Task RemoveCurrencyAsync()
+    {
+        if (SelectedCurrency is null) return;
+        if (SelectedCurrency.IsBase)
+        {
+            StatusMessage = "Cannot remove the base currency (KES).";
+            return;
+        }
+
+        if (!ConfirmDelete($"{SelectedCurrency.Code} — {SelectedCurrency.Name}")) return;
+
+        await using var db = await _dbFactory.CreateDbContextAsync();
+        var entity = await db.Currencies.FindAsync(SelectedCurrency.Id);
+        if (entity is null) return;
+
+        if (entity.IsBase)
+        {
+            StatusMessage = "Cannot remove the base currency (KES).";
+            return;
+        }
+
+        try
+        {
+            db.Currencies.Remove(entity);
+            await db.SaveChangesAsync();
+            StatusMessage = "Currency removed.";
+            await LoadAsync();
+        }
+        catch
+        {
+            StatusMessage = "Cannot remove: currency is in use.";
+        }
+    }
+
     private async Task AddPricingCostOptionAsync(
         PricingCostKind kind,
         string name,
@@ -647,12 +805,56 @@ public partial class SettingsViewModel : ObservableObject
         try
         {
             await db.SaveChangesAsync();
+            foreach (var row in rows)
+            {
+                if (!byId.ContainsKey(row.Id)) continue;
+                await SyncLinkedCostSnapshotsAsync(db, kind, row.Id, row.Cost);
+            }
+
             StatusMessage = $"Saved {rows.Count} {label} option(s).";
             await LoadAsync();
         }
         catch (DbUpdateException)
         {
             StatusMessage = "Save failed. Names must be unique within each option type.";
+        }
+    }
+
+    /// <summary>
+    /// Keep PriceBook / CostingScenario snapshotted costs in sync when a linked option's price changes.
+    /// </summary>
+    private static async Task SyncLinkedCostSnapshotsAsync(
+        CostWiseDbContext db,
+        PricingCostKind kind,
+        int optionId,
+        decimal cost)
+    {
+        switch (kind)
+        {
+            case PricingCostKind.Packing:
+                await db.PriceBooks
+                    .Where(b => b.PackingOptionId == optionId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(b => b.PackingCost, cost));
+                await db.CostingScenarios
+                    .Where(s => s.PackingOptionId == optionId)
+                    .ExecuteUpdateAsync(u => u.SetProperty(s => s.PackingCost, cost));
+                break;
+            case PricingCostKind.Documents:
+                await db.PriceBooks
+                    .Where(b => b.ExportDocOptionId == optionId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(b => b.ExportDocCost, cost));
+                await db.CostingScenarios
+                    .Where(s => s.ExportDocOptionId == optionId)
+                    .ExecuteUpdateAsync(u => u.SetProperty(s => s.ExportDocCost, cost));
+                break;
+            case PricingCostKind.Additive:
+                await db.PriceBooks
+                    .Where(b => b.AdditiveOptionId == optionId)
+                    .ExecuteUpdateAsync(s => s.SetProperty(b => b.SpecialAdditiveCost, cost));
+                await db.CostingScenarios
+                    .Where(s => s.AdditiveOptionId == optionId)
+                    .ExecuteUpdateAsync(u => u.SetProperty(s => s.SpecialAdditiveCost, cost));
+                break;
         }
     }
 

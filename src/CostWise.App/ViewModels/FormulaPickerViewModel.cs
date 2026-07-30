@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CostWise.App.Controls;
 
 namespace CostWise.App.ViewModels;
 
@@ -13,8 +14,11 @@ public partial class FormulaPickerRow : ObservableObject
     public string Code { get; init; } = string.Empty;
     public string CategoryName { get; init; } = string.Empty;
     public string SubCategoryName { get; init; } = string.Empty;
+    public string Revision { get; init; } = string.Empty;
     public string SizeName { get; init; } = string.Empty;
     public string FeedTypeName { get; init; } = string.Empty;
+    public bool IsInProduction { get; init; }
+    public string InProductionLabel => IsInProduction ? "Yes" : "No";
 
     [ObservableProperty] private bool _isSelected;
 }
@@ -24,32 +28,51 @@ public partial class FormulaPickerViewModel : ObservableObject
     private readonly List<FormulaPickerRow> _all = new();
 
     public ObservableCollection<FormulaPickerRow> FilteredRows { get; } = new();
-    public ObservableCollection<NamedFilterOption> CategoryFilters { get; } = new();
-    public ObservableCollection<NamedFilterOption> VersionFilters { get; } = new();
+    public IColumnFilterHost FilterHost { get; }
 
-    [ObservableProperty] private NamedFilterOption? _selectedCategoryFilter;
-    [ObservableProperty] private NamedFilterOption? _selectedVersionFilter;
     [ObservableProperty] private string _searchText = string.Empty;
     [ObservableProperty] private string _countText = string.Empty;
     [ObservableProperty] private string? _errorText;
     [ObservableProperty] private string _windowTitle = "Select formulas";
+    [ObservableProperty] private string _selectionColumnHeader = "In group";
 
     public bool Confirmed { get; private set; }
 
-    public FormulaPickerViewModel(string groupName, IReadOnlyList<FormulaPickerRow> rows)
+    public FormulaPickerViewModel(string groupName, IReadOnlyList<FormulaPickerRow> rows, string selectionColumnHeader = "In group")
     {
         WindowTitle = $"Select formulas — {groupName}";
+        SelectionColumnHeader = selectionColumnHeader;
         _all.AddRange(rows);
 
-        CategoryFilters.Add(new NamedFilterOption { Id = 0, Name = "All categories" });
-        foreach (var c in _all.Select(r => (r.CategoryId, r.CategoryName)).Distinct().OrderBy(x => x.CategoryName))
-            CategoryFilters.Add(new NamedFilterOption { Id = c.CategoryId, Name = c.CategoryName });
-        SelectedCategoryFilter = CategoryFilters[0];
-
-        VersionFilters.Add(new NamedFilterOption { Id = 0, Name = "All versions" });
-        foreach (var v in _all.Select(r => (r.SubCategoryId, r.SubCategoryName)).Distinct().OrderBy(x => x.SubCategoryName))
-            VersionFilters.Add(new NamedFilterOption { Id = v.SubCategoryId, Name = v.SubCategoryName });
-        SelectedVersionFilter = VersionFilters[0];
+        FilterHost = new ColumnFilterController<FormulaPickerRow>(
+            GetSearchFiltered,
+            list =>
+            {
+                FilteredRows.Clear();
+                foreach (var item in list)
+                    FilteredRows.Add(item);
+                UpdateCount();
+            },
+            new Dictionary<string, Func<FormulaPickerRow, string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Code"] = r => r.Code,
+                ["Category"] = r => r.CategoryName,
+                ["Version"] = r => r.SubCategoryName,
+                ["Rev"] = r => r.Revision,
+                ["Size"] = r => r.SizeName,
+                ["FeedType"] = r => r.FeedTypeName,
+                ["InProduction"] = r => r.InProductionLabel
+            },
+            new Dictionary<string, Func<FormulaPickerRow, IComparable?>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Code"] = r => r.Code,
+                ["Category"] = r => r.CategoryName,
+                ["Version"] = r => r.SubCategoryName,
+                ["Rev"] = r => r.Revision,
+                ["Size"] = r => r.SizeName,
+                ["FeedType"] = r => r.FeedTypeName,
+                ["InProduction"] = r => r.InProductionLabel
+            });
 
         if (_all.Count == 0)
             ErrorText = "No formulations found in the database.";
@@ -65,12 +88,11 @@ public partial class FormulaPickerViewModel : ObservableObject
             };
         }
 
-        ApplyFilters();
+        ((ColumnFilterController<FormulaPickerRow>)FilterHost).Apply();
     }
 
-    partial void OnSelectedCategoryFilterChanged(NamedFilterOption? value) => ApplyFilters();
-    partial void OnSelectedVersionFilterChanged(NamedFilterOption? value) => ApplyFilters();
-    partial void OnSearchTextChanged(string value) => ApplyFilters();
+    partial void OnSearchTextChanged(string value) =>
+        ((ColumnFilterController<FormulaPickerRow>)FilterHost).Apply();
 
     public IReadOnlyList<int> GetSelectedIds() =>
         _all.Where(r => r.IsSelected).Select(r => r.FormulationId).ToList();
@@ -92,6 +114,9 @@ public partial class FormulaPickerViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void ResetAllFilters() => FilterHost.ResetAll();
+
+    [RelayCommand]
     private void Ok(Window? window)
     {
         Confirmed = true;
@@ -105,32 +130,19 @@ public partial class FormulaPickerViewModel : ObservableObject
         window?.Close();
     }
 
-    private void ApplyFilters()
+    private IEnumerable<FormulaPickerRow> GetSearchFiltered()
     {
-        FilteredRows.Clear();
-        var categoryId = SelectedCategoryFilter?.Id ?? 0;
-        var versionId = SelectedVersionFilter?.Id ?? 0;
         var search = SearchText?.Trim() ?? string.Empty;
+        if (string.IsNullOrEmpty(search))
+            return _all;
 
-        foreach (var row in _all)
-        {
-            if (categoryId > 0 && row.CategoryId != categoryId) continue;
-            if (versionId > 0 && row.SubCategoryId != versionId) continue;
-            if (!string.IsNullOrEmpty(search))
-            {
-                var hit =
-                    row.Code.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                    row.CategoryName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                    row.SubCategoryName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                    row.SizeName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
-                    row.FeedTypeName.Contains(search, StringComparison.OrdinalIgnoreCase);
-                if (!hit) continue;
-            }
-
-            FilteredRows.Add(row);
-        }
-
-        UpdateCount();
+        return _all.Where(row =>
+            row.Code.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            row.CategoryName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            row.SubCategoryName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            row.Revision.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            row.SizeName.Contains(search, StringComparison.OrdinalIgnoreCase) ||
+            row.FeedTypeName.Contains(search, StringComparison.OrdinalIgnoreCase));
     }
 
     private void UpdateCount()

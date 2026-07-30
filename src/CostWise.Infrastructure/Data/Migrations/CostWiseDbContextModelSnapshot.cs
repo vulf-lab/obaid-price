@@ -117,6 +117,108 @@ namespace CostWise.Infrastructure.Data.Migrations
                     b.ToTable("CostingScenarios");
                 });
 
+            modelBuilder.Entity("CostWise.Core.Entities.Currency", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsBase")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("KesPerUnit")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Currencies");
+                });
+
+            modelBuilder.Entity("CostWise.Core.Entities.CommercialPriceList", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("CurrencyId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("EffectiveDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SellUnit")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrencyId");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("CommercialPriceLists");
+                });
+
+            modelBuilder.Entity("CostWise.Core.Entities.CommercialPriceListBook", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CommercialPriceListId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PriceBookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PriceBookId")
+                        .IsUnique();
+
+                    b.HasIndex("CommercialPriceListId", "PriceBookId")
+                        .IsUnique();
+
+                    b.ToTable("CommercialPriceListBooks");
+                });
+
             modelBuilder.Entity("CostWise.Core.Entities.FeedType", b =>
                 {
                     b.Property<int>("Id")
@@ -337,6 +439,9 @@ namespace CostWise.Infrastructure.Data.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("DisplayCurrencyId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<decimal>("ExportDocCost")
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
@@ -363,6 +468,17 @@ namespace CostWise.Infrastructure.Data.Migrations
                     b.Property<int>("PriceUnit")
                         .HasColumnType("INTEGER");
 
+                    b.Property<decimal>("RoundBagTo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("RoundMtTo")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
                     b.Property<decimal>("SpecialAdditiveCost")
                         .HasPrecision(18, 2)
                         .HasColumnType("TEXT");
@@ -378,6 +494,8 @@ namespace CostWise.Infrastructure.Data.Migrations
 
                     b.HasIndex("AdditiveOptionId");
 
+                    b.HasIndex("DisplayCurrencyId");
+
                     b.HasIndex("ExportDocOptionId");
 
                     b.HasIndex("Name")
@@ -386,6 +504,39 @@ namespace CostWise.Infrastructure.Data.Migrations
                     b.HasIndex("PackingOptionId");
 
                     b.ToTable("PriceBooks");
+                });
+
+            modelBuilder.Entity("CostWise.Core.Entities.PriceBookFormulation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("FormulationId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("OverrideSellPriceBag")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("OverrideSellPriceMt")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PriceBookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormulationId");
+
+                    b.HasIndex("PriceBookId", "FormulationId")
+                        .IsUnique();
+
+                    b.ToTable("PriceBookFormulations");
                 });
 
             modelBuilder.Entity("CostWise.Core.Entities.PricingCostOption", b =>
@@ -496,6 +647,37 @@ namespace CostWise.Infrastructure.Data.Migrations
                     b.ToTable("RawIngredients");
                 });
 
+            modelBuilder.Entity("CostWise.Core.Entities.RawIngredientPriceHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ChangedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("ExchangeRateKesPerUsd")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("PricePerMt")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("PricePerMtUsd")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("RawIngredientId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RawIngredientId", "ChangedAtUtc");
+
+                    b.ToTable("RawIngredientPriceHistories");
+                });
+
             modelBuilder.Entity("CostWise.Core.Entities.Size", b =>
                 {
                     b.Property<int>("Id")
@@ -594,6 +776,118 @@ namespace CostWise.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("SubCategories");
+                });
+
+            modelBuilder.Entity("CostWise.Core.Entities.VictoryReportSnapshot", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("BookAId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("BookAMarginPercent")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("BookBId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("BookBMarginPercent")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookAId");
+
+                    b.HasIndex("BookBId");
+
+                    b.HasIndex("CreatedAtUtc");
+
+                    b.ToTable("VictoryReportSnapshots");
+                });
+
+            modelBuilder.Entity("CostWise.Core.Entities.VictoryReportSnapshotLine", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FormulationId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PriceBookId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal?>("SellBag")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("SellMt")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SnapshotId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FormulationId");
+
+                    b.HasIndex("PriceBookId");
+
+                    b.HasIndex("SnapshotId", "PriceBookId", "FormulationId")
+                        .IsUnique();
+
+                    b.ToTable("VictoryReportSnapshotLines");
+                });
+
+            modelBuilder.Entity("CostWise.Core.Entities.CommercialPriceList", b =>
+                {
+                    b.HasOne("CostWise.Core.Entities.Currency", "Currency")
+                        .WithMany()
+                        .HasForeignKey("CurrencyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Currency");
+                });
+
+            modelBuilder.Entity("CostWise.Core.Entities.CommercialPriceListBook", b =>
+                {
+                    b.HasOne("CostWise.Core.Entities.CommercialPriceList", "CommercialPriceList")
+                        .WithMany("Books")
+                        .HasForeignKey("CommercialPriceListId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CostWise.Core.Entities.PriceBook", "PriceBook")
+                        .WithMany()
+                        .HasForeignKey("PriceBookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CommercialPriceList");
+
+                    b.Navigation("PriceBook");
                 });
 
             modelBuilder.Entity("CostWise.Core.Entities.CostingScenario", b =>
@@ -726,6 +1020,11 @@ namespace CostWise.Infrastructure.Data.Migrations
                         .HasForeignKey("AdditiveOptionId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("CostWise.Core.Entities.Currency", "DisplayCurrency")
+                        .WithMany()
+                        .HasForeignKey("DisplayCurrencyId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("CostWise.Core.Entities.PricingCostOption", "ExportDocOption")
                         .WithMany()
                         .HasForeignKey("ExportDocOptionId")
@@ -738,9 +1037,30 @@ namespace CostWise.Infrastructure.Data.Migrations
 
                     b.Navigation("AdditiveOption");
 
+                    b.Navigation("DisplayCurrency");
+
                     b.Navigation("ExportDocOption");
 
                     b.Navigation("PackingOption");
+                });
+
+            modelBuilder.Entity("CostWise.Core.Entities.PriceBookFormulation", b =>
+                {
+                    b.HasOne("CostWise.Core.Entities.Formulation", "Formulation")
+                        .WithMany()
+                        .HasForeignKey("FormulationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CostWise.Core.Entities.PriceBook", "PriceBook")
+                        .WithMany("Formulations")
+                        .HasForeignKey("PriceBookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Formulation");
+
+                    b.Navigation("PriceBook");
                 });
 
             modelBuilder.Entity("CostWise.Core.Entities.ProductionGroupFormulation", b =>
@@ -762,6 +1082,17 @@ namespace CostWise.Infrastructure.Data.Migrations
                     b.Navigation("ProductionGroup");
                 });
 
+            modelBuilder.Entity("CostWise.Core.Entities.RawIngredientPriceHistory", b =>
+                {
+                    b.HasOne("CostWise.Core.Entities.RawIngredient", "RawIngredient")
+                        .WithMany("PriceHistory")
+                        .HasForeignKey("RawIngredientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("RawIngredient");
+                });
+
             modelBuilder.Entity("CostWise.Core.Entities.Size", b =>
                 {
                     b.HasOne("CostWise.Core.Entities.FeedType", "FeedType")
@@ -772,9 +1103,60 @@ namespace CostWise.Infrastructure.Data.Migrations
                     b.Navigation("FeedType");
                 });
 
+            modelBuilder.Entity("CostWise.Core.Entities.VictoryReportSnapshot", b =>
+                {
+                    b.HasOne("CostWise.Core.Entities.PriceBook", "BookA")
+                        .WithMany()
+                        .HasForeignKey("BookAId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CostWise.Core.Entities.PriceBook", "BookB")
+                        .WithMany()
+                        .HasForeignKey("BookBId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BookA");
+
+                    b.Navigation("BookB");
+                });
+
+            modelBuilder.Entity("CostWise.Core.Entities.VictoryReportSnapshotLine", b =>
+                {
+                    b.HasOne("CostWise.Core.Entities.Formulation", "Formulation")
+                        .WithMany()
+                        .HasForeignKey("FormulationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CostWise.Core.Entities.PriceBook", "PriceBook")
+                        .WithMany()
+                        .HasForeignKey("PriceBookId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("CostWise.Core.Entities.VictoryReportSnapshot", "Snapshot")
+                        .WithMany("Lines")
+                        .HasForeignKey("SnapshotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Formulation");
+
+                    b.Navigation("PriceBook");
+
+                    b.Navigation("Snapshot");
+                });
+
             modelBuilder.Entity("CostWise.Core.Entities.Category", b =>
                 {
                     b.Navigation("Formulations");
+                });
+
+            modelBuilder.Entity("CostWise.Core.Entities.CommercialPriceList", b =>
+                {
+                    b.Navigation("Books");
                 });
 
             modelBuilder.Entity("CostWise.Core.Entities.FeedType", b =>
@@ -795,6 +1177,11 @@ namespace CostWise.Infrastructure.Data.Migrations
                     b.Navigation("Specs");
                 });
 
+            modelBuilder.Entity("CostWise.Core.Entities.PriceBook", b =>
+                {
+                    b.Navigation("Formulations");
+                });
+
             modelBuilder.Entity("CostWise.Core.Entities.ProductionGroup", b =>
                 {
                     b.Navigation("Formulations");
@@ -803,6 +1190,8 @@ namespace CostWise.Infrastructure.Data.Migrations
             modelBuilder.Entity("CostWise.Core.Entities.RawIngredient", b =>
                 {
                     b.Navigation("FormulationIngredients");
+
+                    b.Navigation("PriceHistory");
                 });
 
             modelBuilder.Entity("CostWise.Core.Entities.Size", b =>
@@ -823,6 +1212,11 @@ namespace CostWise.Infrastructure.Data.Migrations
             modelBuilder.Entity("CostWise.Core.Entities.SubCategory", b =>
                 {
                     b.Navigation("Formulations");
+                });
+
+            modelBuilder.Entity("CostWise.Core.Entities.VictoryReportSnapshot", b =>
+                {
+                    b.Navigation("Lines");
                 });
 #pragma warning restore 612, 618
         }

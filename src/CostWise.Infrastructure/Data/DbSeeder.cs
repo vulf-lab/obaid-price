@@ -1,4 +1,5 @@
 using CostWise.Core.Entities;
+using CostWise.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace CostWise.Infrastructure.Data;
@@ -13,7 +14,33 @@ public static class DbSeeder
         await SeedSubCategoriesAsync(db, cancellationToken);
         await SeedSizesAsync(db, cancellationToken);
         await SeedSpecParametersAsync(db, cancellationToken);
+        await SeedCurrenciesAsync(db, cancellationToken);
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    private static async Task SeedCurrenciesAsync(CostWiseDbContext db, CancellationToken ct)
+    {
+        if (await db.Currencies.AnyAsync(ct)) return;
+
+        db.Currencies.AddRange(
+            new Currency
+            {
+                Code = "KES",
+                Name = "Kenyan Shilling",
+                IsBase = true,
+                KesPerUnit = 1m,
+                IsActive = true,
+                SortOrder = 0
+            },
+            new Currency
+            {
+                Code = "USD",
+                Name = "US Dollar",
+                IsBase = false,
+                KesPerUnit = 130m,
+                IsActive = true,
+                SortOrder = 1
+            });
     }
 
     private static async Task SeedFeedTypesAsync(CostWiseDbContext db, CancellationToken ct)
@@ -25,8 +52,8 @@ public static class DbSeeder
             new FeedType { Name = "Pre-grower" },
             new FeedType { Name = "Grower" },
             new FeedType { Name = "Finisher High Pro" },
-            new FeedType { Name = "Finisher Low Pro" },
-            new FeedType { Name = "Brood Stock" });
+            new FeedType { Name = "Balanced Finisher" },
+            new FeedType { Name = "Broodstock" });
     }
 
     private static async Task SeedSpeciesAsync(CostWiseDbContext db, CancellationToken ct)
@@ -80,10 +107,7 @@ public static class DbSeeder
         if (await db.SpecParameters.AnyAsync(ct)) return;
 
         db.SpecParameters.AddRange(
-            new SpecParameter { Name = "Crude Protein", Unit = "%" },
-            new SpecParameter { Name = "Crude Fat", Unit = "%" },
-            new SpecParameter { Name = "Crude Fiber", Unit = "%" },
-            new SpecParameter { Name = "Ash", Unit = "%" },
-            new SpecParameter { Name = "Moisture", Unit = "%" });
+            SpecParameterNormalizer.Canonical.Select(x =>
+                new SpecParameter { Name = x.Name, Unit = x.Unit }));
     }
 }

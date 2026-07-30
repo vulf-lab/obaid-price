@@ -2,12 +2,15 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CostWise.App.Controls;
 using CostWise.App.Services;
+using CostWise.App.Services.Import;
 using CostWise.Core.Entities;
 using CostWise.Core.Services;
 using CostWise.Infrastructure.Data;
 using CostWise.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Win32;
 using FeedSize = CostWise.Core.Entities.Size;
 
 namespace CostWise.App.ViewModels;
@@ -18,6 +21,8 @@ public enum ProducibilityFilter
     Producible,
     Unfit
 }
+
+public sealed record ProducibilityFilterOption(ProducibilityFilter Value, string Label);
 
 public enum ActiveFilter
 {
@@ -42,6 +47,13 @@ public partial class FormulationListItem : ObservableObject
     [ObservableProperty] private string _unavailableMaterials = string.Empty;
     [ObservableProperty] private decimal _rmCost;
     [ObservableProperty] private DateTime _updatedAtUtc;
+    [ObservableProperty] private bool _isCompareSelected;
+
+    public string StatusLabel => IsUnfit ? "Unfit" : "Producible";
+    public string ActiveLabel => IsActive ? "Yes" : "No";
+
+    partial void OnIsUnfitChanged(bool value) => OnPropertyChanged(nameof(StatusLabel));
+    partial void OnIsActiveChanged(bool value) => OnPropertyChanged(nameof(ActiveLabel));
 }
 
 public partial class IngredientLineRow : ObservableObject
@@ -68,6 +80,37 @@ public partial class SpecLineRow : ObservableObject
     [ObservableProperty] private decimal? _targetValue;
     [ObservableProperty] private decimal? _minValue;
     [ObservableProperty] private decimal? _maxValue;
+
+    public int DecimalPlaces { get; set; } = 2;
+
+    /// <summary>Formatted Target for grid edit/display (per-nutrient decimals).</summary>
+    public string TargetText
+    {
+        get => TargetValue is null
+            ? string.Empty
+            : TargetValue.Value.ToString($"F{DecimalPlaces}", System.Globalization.CultureInfo.CurrentCulture);
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                TargetValue = null;
+                return;
+            }
+
+            if (decimal.TryParse(value, System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.CurrentCulture, out var parsed) ||
+                decimal.TryParse(value, System.Globalization.NumberStyles.Number,
+                    System.Globalization.CultureInfo.InvariantCulture, out parsed))
+            {
+                TargetValue = RoundTarget(parsed, DecimalPlaces);
+            }
+        }
+    }
+
+    partial void OnTargetValueChanged(decimal? value) => OnPropertyChanged(nameof(TargetText));
+
+    public static decimal? RoundTarget(decimal? value, int decimals) =>
+        value is null ? null : Math.Round(value.Value, decimals, MidpointRounding.AwayFromZero);
 }
 
 public partial class ChangeLogRow : ObservableObject
@@ -79,27 +122,29 @@ public partial class ChangeLogRow : ObservableObject
 
 public partial class FormulationsViewModel : ObservableObject
 {
+    public const string FilterStateKey = "Formulations.List";
+
     private readonly IDbContextFactory<CostWiseDbContext> _dbFactory;
     private readonly AppPreferences _preferences;
+    private readonly INavigationService _navigation;
+    private readonly CompareSelectionService _compareSelection;
+    private readonly ColumnFilterController<FormulationListItem> _filterController;
+    private Task _loadTask = Task.CompletedTask;
+    private bool _suppressFilterPersist;
 
     public ObservableCollection<FormulationListItem> Items { get; } = new();
     public ObservableCollection<FormulationListItem> FilteredItems { get; } = new();
-    public ObservableCollection<Category> CategoryFilters { get; } = new();
-    public ObservableCollection<SubCategory> SubCategoryFilters { get; } = new();
-    public ObservableCollection<FeedType> FeedTypeFilters { get; } = new();
-    public ObservableCollection<string> RevisionFilters { get; } = new();
     public ObservableCollection<ChangeLogRow> ChangeLogs { get; } = new();
 
+    public IColumnFilterHost FilterHost => _filterController;
+
     [ObservableProperty] private FormulationListItem? _selectedItem;
-    [ObservableProperty] private ProducibilityFilter _producibilityFilter = ProducibilityFilter.All;
-    [ObservableProperty] private ActiveFilter _activeFilter = ActiveFilter.All;
-    [ObservableProperty] private Category? _selectedCategoryFilter;
-    [ObservableProperty] private SubCategory? _selectedSubCategoryFilter;
-    [ObservableProperty] private FeedType? _selectedFeedTypeFilter;
-    [ObservableProperty] private string? _selectedRevisionFilter;
     [ObservableProperty] private bool _isDetailOpen;
     [ObservableProperty] private bool _isEditMode;
     [ObservableProperty] private string _statusMessage = string.Empty;
+    [ObservableProperty] private bool _canCompareFormulations;
+    [ObservableProperty] private bool _detailIsInCompare;
+    [ObservableProperty] private bool _canCompareFromDetail;
 
     [ObservableProperty] private int _editId;
     [ObservableProperty] private string _editSystemId = string.Empty;
@@ -131,58 +176,142 @@ public partial class FormulationsViewModel : ObservableObject
     [ObservableProperty] private RawIngredient? _selectedRawToAdd;
     [ObservableProperty] private SpecParameter? _selectedSpecToAdd;
 
-    public Array ProducibilityFilters => Enum.GetValues(typeof(ProducibilityFilter));
-    public Array ActiveFilters => Enum.GetValues(typeof(ActiveFilter));
     public bool IsCodeEditable => IsEditMode && EditId == 0;
     public bool IsViewMode => IsDetailOpen && !IsEditMode;
 
-    public FormulationsViewModel(IDbContextFactory<CostWiseDbContext> dbFactory, AppPreferences preferences)
+    public FormulationsViewModel(
+        IDbContextFactory<CostWiseDbContext> dbFactory,
+        AppPreferences preferences,
+        INavigationService navigation,
+        CompareSelectionService compareSelection)
     {
         _dbFactory = dbFactory;
         _preferences = preferences;
+        _navigation = navigation;
+        _compareSelection = compareSelection;
+        _compareSelection.Changed += (_, _) =>
+        {
+            Application.Current.Dispatcher.Invoke(SyncCompareFlags);
+        };
         _preferences.Changed += (_, _) => RefreshMoneyDisplay();
         IngredientLines.CollectionChanged += (_, _) => RecalcTotals();
-        _ = LoadAsync();
+        _filterController = new ColumnFilterController<FormulationListItem>(
+            () => Items,
+            list =>
+            {
+                FilteredItems.Clear();
+                foreach (var item in list)
+                    FilteredItems.Add(item);
+            },
+            new Dictionary<string, Func<FormulationListItem, string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["SystemId"] = r => r.SystemId,
+                ["Code"] = r => r.Code,
+                ["FeedType"] = r => r.FeedTypeName,
+                ["Species"] = r => r.SpeciesName,
+                ["Size"] = r => r.SizeName,
+                ["Category"] = r => r.CategoryName,
+                ["Version"] = r => r.SubCategoryName,
+                ["Rev"] = r => r.Revision,
+                ["Active"] = r => r.ActiveLabel,
+                ["RmCost"] = r => r.RmCost.ToString("0.##"),
+                ["Status"] = r => r.StatusLabel
+            },
+            new Dictionary<string, Func<FormulationListItem, IComparable?>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["SystemId"] = r => r.SystemId,
+                ["Code"] = r => r.Code,
+                ["FeedType"] = r => r.FeedTypeName,
+                ["Species"] = r => r.SpeciesName,
+                ["Size"] = r => r.SizeName,
+                ["Category"] = r => r.CategoryName,
+                ["Version"] = r => r.SubCategoryName,
+                ["Rev"] = r => r.Revision,
+                ["Active"] = r => r.ActiveLabel,
+                ["RmCost"] = r => r.RmCost,
+                ["Status"] = r => r.StatusLabel
+            });
+        _filterController.FiltersChanged += (_, _) =>
+        {
+            if (_suppressFilterPersist) return;
+            ColumnFilterStateStore.Save(FilterStateKey, _filterController.CaptureState());
+        };
+        _loadTask = LoadAsync();
     }
 
-    partial void OnProducibilityFilterChanged(ProducibilityFilter value) => ApplyFilters();
-    partial void OnActiveFilterChanged(ActiveFilter value) => ApplyFilters();
-    partial void OnSelectedCategoryFilterChanged(Category? value) => ApplyFilters();
-    partial void OnSelectedSubCategoryFilterChanged(SubCategory? value) => ApplyFilters();
-    partial void OnSelectedFeedTypeFilterChanged(FeedType? value) => ApplyFilters();
-    partial void OnSelectedRevisionFilterChanged(string? value) => ApplyFilters();
+    private void SyncCompareFlags()
+    {
+        var atCap = _compareSelection.FormulationCount >= CompareSelectionService.MaxItems;
+        foreach (var item in Items)
+        {
+            var selected = _compareSelection.IsFormulationSelected(item.Id);
+            if (selected)
+            {
+                item.IsCompareSelected = true;
+                continue;
+            }
+
+            // Force OneWay CheckBox refresh when at cap (clears stale local IsChecked).
+            if (atCap || item.IsCompareSelected)
+            {
+                item.IsCompareSelected = true;
+                item.IsCompareSelected = false;
+            }
+            else
+            {
+                item.IsCompareSelected = false;
+            }
+        }
+
+        CanCompareFormulations = _compareSelection.CanCompareFormulations;
+        CompareCommand.NotifyCanExecuteChanged();
+        RefreshDetailCompareUi();
+    }
+
+    private void RefreshDetailCompareUi()
+    {
+        if (!IsDetailOpen || EditId <= 0)
+        {
+            DetailIsInCompare = false;
+            CanCompareFromDetail = false;
+            return;
+        }
+
+        DetailIsInCompare = _compareSelection.IsFormulationSelected(EditId);
+        var count = _compareSelection.FormulationCount;
+        CanCompareFromDetail = DetailIsInCompare ? count >= 2 : count + 1 >= 2;
+        CompareFromDetailCommand.NotifyCanExecuteChanged();
+    }
+
     partial void OnIsEditModeChanged(bool value)
     {
         OnPropertyChanged(nameof(IsCodeEditable));
         OnPropertyChanged(nameof(IsViewMode));
     }
-    partial void OnIsDetailOpenChanged(bool value) => OnPropertyChanged(nameof(IsViewMode));
-    partial void OnEditIdChanged(int value) => OnPropertyChanged(nameof(IsCodeEditable));
+    partial void OnIsDetailOpenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsViewMode));
+        RefreshDetailCompareUi();
+    }
+    partial void OnEditIdChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsCodeEditable));
+        RefreshDetailCompareUi();
+    }
 
     [RelayCommand]
     private async Task LoadAsync()
     {
+        var load = LoadInternalAsync();
+        _loadTask = load;
+        await load;
+    }
+
+    private async Task LoadInternalAsync()
+    {
         await using var db = await _dbFactory.CreateDbContextAsync();
         await FormulationActiveSync.SyncFromProductionGroupsAsync(db);
         await db.SaveChangesAsync();
-
-        CategoryFilters.Clear();
-        CategoryFilters.Add(new Category { Id = 0, Name = "All categories" });
-        foreach (var c in await db.Categories.Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync())
-            CategoryFilters.Add(c);
-        SelectedCategoryFilter = CategoryFilters.First();
-
-        SubCategoryFilters.Clear();
-        SubCategoryFilters.Add(new SubCategory { Id = 0, Name = "All versions" });
-        foreach (var s in await db.SubCategories.Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync())
-            SubCategoryFilters.Add(s);
-        SelectedSubCategoryFilter = SubCategoryFilters.First();
-
-        FeedTypeFilters.Clear();
-        FeedTypeFilters.Add(new FeedType { Id = 0, Name = "All feed types" });
-        foreach (var ft in await db.FeedTypes.Where(x => x.IsActive).OrderBy(x => x.Name).ToListAsync())
-            FeedTypeFilters.Add(ft);
-        SelectedFeedTypeFilter = FeedTypeFilters.First();
 
         var formulations = await db.Formulations
             .Include(f => f.FeedType)
@@ -227,32 +356,121 @@ public partial class FormulationsViewModel : ObservableObject
             });
         }
 
-        RevisionFilters.Clear();
-        RevisionFilters.Add("All revs");
-        foreach (var rev in Items.Select(i => i.Revision).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(r => r, StringComparer.OrdinalIgnoreCase))
-            RevisionFilters.Add(rev);
-        SelectedRevisionFilter = RevisionFilters.First();
-
-        ApplyFilters();
+        SyncCompareFlags();
+        RestorePersistedFilters();
     }
 
-    private void ApplyFilters()
+    private void RestorePersistedFilters()
     {
-        FilteredItems.Clear();
-        foreach (var item in Items)
+        _suppressFilterPersist = true;
+        try
         {
-            if (ProducibilityFilter == ProducibilityFilter.Producible && item.IsUnfit) continue;
-            if (ProducibilityFilter == ProducibilityFilter.Unfit && !item.IsUnfit) continue;
-            if (ActiveFilter == ActiveFilter.Active && !item.IsActive) continue;
-            if (ActiveFilter == ActiveFilter.Inactive && item.IsActive) continue;
-            if (SelectedCategoryFilter is { Id: > 0 } && item.CategoryName != SelectedCategoryFilter.Name) continue;
-            if (SelectedSubCategoryFilter is { Id: > 0 } && item.SubCategoryName != SelectedSubCategoryFilter.Name) continue;
-            if (SelectedFeedTypeFilter is { Id: > 0 } && item.FeedTypeName != SelectedFeedTypeFilter.Name) continue;
-            if (!string.IsNullOrEmpty(SelectedRevisionFilter)
-                && SelectedRevisionFilter != "All revs"
-                && !string.Equals(item.Revision, SelectedRevisionFilter, StringComparison.OrdinalIgnoreCase))
-                continue;
-            FilteredItems.Add(item);
+            _filterController.RestoreState(ColumnFilterStateStore.Load(FilterStateKey));
+        }
+        finally
+        {
+            _suppressFilterPersist = false;
+        }
+    }
+
+    [RelayCommand]
+    private void ResetAllFilters()
+    {
+        _filterController.ResetAll();
+        ColumnFilterStateStore.Save(FilterStateKey, ColumnFilterState.Empty);
+    }
+
+    [RelayCommand]
+    private void ToggleCompare(FormulationListItem? item)
+    {
+        if (item is null) return;
+        var desired = !_compareSelection.IsFormulationSelected(item.Id);
+        if (!_compareSelection.TrySetFormulation(item.Id, item.Code, desired, out var error))
+        {
+            // Force OneWay CheckBox binding refresh (local IsChecked may already be true).
+            item.IsCompareSelected = true;
+            item.IsCompareSelected = false;
+            SyncCompareFlags();
+            StatusMessage = error ?? "Could not update compare selection.";
+            return;
+        }
+
+        item.IsCompareSelected = desired;
+        SyncCompareFlags();
+        StatusMessage = _compareSelection.FormulationCount == 0
+            ? "Compare selection cleared."
+            : $"Compare: {_compareSelection.FormulationCount} formulation(s) selected.";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanExecuteCompareFormulations))]
+    private void Compare()
+    {
+        _navigation.NavigateTo<ComparisonViewModel>(vm => vm.ShowFormulations());
+    }
+
+    private bool CanExecuteCompareFormulations() => _compareSelection.CanCompareFormulations;
+
+    [RelayCommand(CanExecute = nameof(CanExecuteCompareFromDetail))]
+    private void CompareFromDetail()
+    {
+        if (EditId <= 0 || string.IsNullOrWhiteSpace(EditCode)) return;
+        if (!_compareSelection.IsFormulationSelected(EditId))
+        {
+            if (!_compareSelection.TrySetFormulation(EditId, EditCode, true, out var error))
+            {
+                StatusMessage = error ?? "Could not add to compare.";
+                RefreshDetailCompareUi();
+                return;
+            }
+        }
+
+        if (!_compareSelection.CanCompareFormulations)
+        {
+            StatusMessage = "Select at least 2 formulations to compare.";
+            RefreshDetailCompareUi();
+            return;
+        }
+
+        _navigation.NavigateTo<ComparisonViewModel>(vm => vm.ShowFormulations());
+    }
+
+    private bool CanExecuteCompareFromDetail() => CanCompareFromDetail;
+
+    [RelayCommand]
+    private void DownloadImportSample() =>
+        ImportSampleDownload.PromptSave(
+            "formulation-import-sample.xlsx",
+            ImportSampleWorkbookFactory.SaveFormulationSample);
+
+    [RelayCommand]
+    private async Task ImportFormulasAsync()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Filter = "Excel workbook (*.xlsx)|*.xlsx",
+            Title = "Import formulations"
+        };
+        if (dialog.ShowDialog() != true) return;
+
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var preview = await FormulationImportService.PreviewAsync(db, dialog.FileName);
+            if (!ImportPreviewDialog.ShowFormulaPreview(Application.Current.MainWindow, preview))
+            {
+                StatusMessage = "Import cancelled.";
+                return;
+            }
+
+            await using var applyDb = await _dbFactory.CreateDbContextAsync();
+            var written = await FormulationImportService.ApplyAsync(applyDb, preview);
+            StatusMessage = $"Imported formulations: {written} code(s) written.";
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            MessageBox.Show(ex.Message, "Import failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -307,6 +525,27 @@ public partial class FormulationsViewModel : ObservableObject
         {
             MessageBox.Show($"Could not open formulation:\n{ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    public async Task SelectAndOpenByCodeAsync(string code)
+    {
+        await _loadTask;
+        var item = Items.FirstOrDefault(i =>
+            string.Equals(i.Code, code, StringComparison.OrdinalIgnoreCase));
+        if (item is null)
+        {
+            StatusMessage = $"Formulation '{code}' not found.";
+            return;
+        }
+
+        await OpenAsync(item);
+    }
+
+    [RelayCommand]
+    private void OpenProfile(FormulationListItem? item)
+    {
+        if (item is null) return;
+        _navigation.NavigateTo<NutritionProfilesViewModel>(vm => vm.QueueOpenProfile(item.Code));
     }
 
     [RelayCommand]
@@ -415,7 +654,8 @@ public partial class FormulationsViewModel : ObservableObject
         {
             SpecParameterId = SelectedSpecToAdd.Id,
             SpecParameterName = SelectedSpecToAdd.Name,
-            Unit = SelectedSpecToAdd.Unit
+            Unit = SelectedSpecToAdd.Unit,
+            DecimalPlaces = SpecParameterNormalizer.GetDecimals(SelectedSpecToAdd.Name)
         });
     }
 
@@ -491,7 +731,7 @@ public partial class FormulationsViewModel : ObservableObject
         entity.Specs = SpecLines.Select(l => new FormulationSpec
         {
             SpecParameterId = l.SpecParameterId,
-            TargetValue = l.TargetValue,
+            TargetValue = SpecLineRow.RoundTarget(l.TargetValue, l.DecimalPlaces),
             MinValue = l.MinValue,
             MaxValue = l.MaxValue
         }).ToList();
@@ -583,13 +823,15 @@ public partial class FormulationsViewModel : ObservableObject
         foreach (var line in f.Specs)
         {
             if (line.SpecParameter is null) continue;
+            var decimals = SpecParameterNormalizer.GetDecimals(line.SpecParameter.Name);
             SpecLines.Add(new SpecLineRow
             {
                 Id = line.Id,
                 SpecParameterId = line.SpecParameterId,
                 SpecParameterName = line.SpecParameter.Name,
                 Unit = line.SpecParameter.Unit,
-                TargetValue = line.TargetValue,
+                DecimalPlaces = decimals,
+                TargetValue = SpecLineRow.RoundTarget(line.TargetValue, decimals),
                 MinValue = line.MinValue,
                 MaxValue = line.MaxValue
             });

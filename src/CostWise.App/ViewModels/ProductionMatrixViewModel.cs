@@ -23,6 +23,7 @@ public partial class ProductionMatrixColumn : ObservableObject
 {
     [ObservableProperty] private int _formulationId;
     [ObservableProperty] private string _categoryName = string.Empty;
+    [ObservableProperty] private string _feedTypeName = string.Empty;
     [ObservableProperty] private string _sizeName = string.Empty;
     [ObservableProperty] private string _code = string.Empty;
     [ObservableProperty] private decimal _totalPercent;
@@ -237,8 +238,10 @@ public partial class ProductionMatrixViewModel : ObservableObject
                 Code = f.Code,
                 CategoryName = f.Category.Name,
                 SubCategoryName = f.SubCategory.Name,
+                Revision = f.Revision,
                 SizeName = f.Size.Name,
                 FeedTypeName = f.FeedType.Name,
+                IsInProduction = f.IsActive,
                 IsSelected = memberIds.Contains(f.Id)
             }).ToList();
         }
@@ -341,7 +344,7 @@ public partial class ProductionMatrixViewModel : ObservableObject
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 Filter = "Excel workbook (*.xlsx)|*.xlsx",
-                FileName = $"CostWise-Production-{DateTime.Now:yyyyMMdd}.xlsx"
+                FileName = $"OBAID-Pricing-Production-{DateTime.Now:yyyyMMdd}.xlsx"
             };
             if (dialog.ShowDialog() != true) return;
 
@@ -364,7 +367,7 @@ public partial class ProductionMatrixViewModel : ObservableObject
             var dialog = new Microsoft.Win32.SaveFileDialog
             {
                 Filter = "PDF document (*.pdf)|*.pdf",
-                FileName = $"CostWise-Production-{DateTime.Now:yyyyMMdd}.pdf"
+                FileName = $"OBAID-Pricing-Production-{DateTime.Now:yyyyMMdd}.pdf"
             };
             if (dialog.ShowDialog() != true) return;
 
@@ -441,6 +444,7 @@ public partial class ProductionMatrixViewModel : ObservableObject
                 .Where(f => _memberIds.Contains(f.Id))
                 .Include(f => f.Category)
                 .Include(f => f.Size)
+                .Include(f => f.FeedType)
                 .Include(f => f.Ingredients).ThenInclude(i => i.RawIngredient)
                 .ToListAsync();
 
@@ -470,6 +474,7 @@ public partial class ProductionMatrixViewModel : ObservableObject
             {
                 FormulationId = f.Id,
                 CategoryName = f.Category.Name,
+                FeedTypeName = f.FeedType.Name,
                 SizeName = f.Size.Name,
                 Code = f.Code
             });

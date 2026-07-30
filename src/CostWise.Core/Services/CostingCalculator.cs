@@ -81,8 +81,29 @@ public static class CostingCalculator
 
     public static decimal ToBag(decimal perMt) => perMt / BagsPerMt;
 
+    public static decimal FromBag(decimal perBag) => perBag * BagsPerMt;
+
     public static decimal ApplyUnit(decimal perMt, PriceUnit unit) =>
         unit == PriceUnit.PerBag25Kg ? ToBag(perMt) : perMt;
+
+    /// <summary>Round to nearest multiple of <paramref name="increment"/>. If increment &lt;= 0, round to 2 decimals.</summary>
+    public static decimal RoundToIncrement(decimal value, decimal increment)
+    {
+        if (increment <= 0m)
+            return Round(value);
+
+        var steps = Math.Round(value / increment, MidpointRounding.AwayFromZero);
+        return steps * increment;
+    }
+
+    /// <summary>Gross margin on selling price: (sell − cost) / sell × 100. Null when sell is 0.</summary>
+    public static decimal? GrossMarginPercent(decimal sellMt, decimal totalCostMt)
+    {
+        if (sellMt == 0m)
+            return null;
+
+        return Round((sellMt - totalCostMt) / sellMt * 100m);
+    }
 
     private static CostingResult BuildResult(
         decimal rmCost,
@@ -100,7 +121,9 @@ public static class CostingCalculator
                     + specialAdditive
                     + transportation;
 
-        var sellingPrice = total * (1m + marginPercent / 100m);
+        // Margin% = gross margin on sell → Sell = Cost / (1 - m/100)
+        var factor = 1m - marginPercent / 100m;
+        var sellingPrice = factor > 0m ? total / factor : total;
 
         return new CostingResult(
             Round(rmCost),

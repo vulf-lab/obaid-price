@@ -1,5 +1,6 @@
 using ClosedXML.Excel;
 using CostWise.Core.Entities;
+using CostWise.Infrastructure;
 using CostWise.Infrastructure.Data;
 using CostWise.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -13,21 +14,32 @@ internal static class Program
 
     private static async Task<int> Main(string[] args)
     {
-        var apply = args.Any(a => string.Equals(a, "--apply", StringComparison.OrdinalIgnoreCase));
-        var excelPath = args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal))
-            ?? @"c:\Users\oureh\OneDrive\Documents\costwise 2.xlsx";
-
-        if (!File.Exists(excelPath))
+        if (args.Any(a => a is "-h" or "--help" or "/?"))
         {
-            // OneDrive lock fallback: try temp copy hint
-            Console.Error.WriteLine($"File not found: {excelPath}");
-            return 1;
+            Console.WriteLine("Usage: CostWise.ApplySheet <excel.xlsx> [--apply] --db <path> | --force-local");
+            Console.WriteLine(ToolDatabaseArgs.HelpText);
+            return 0;
         }
 
-        var dbPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CostWise",
-            "costwise.db");
+        if (!ToolDatabaseArgs.TryResolve(args, out var dbPath, out var dbError))
+        {
+            Console.Error.WriteLine(dbError);
+            return dbError.Contains("Refusing", StringComparison.Ordinal) ? 2 : 0;
+        }
+
+        var apply = args.Any(a => string.Equals(a, "--apply", StringComparison.OrdinalIgnoreCase));
+        var excelPath = args.FirstOrDefault(a =>
+            !a.StartsWith("--", StringComparison.Ordinal) &&
+            !a.StartsWith("-", StringComparison.Ordinal) &&
+            !IsSamePath(a, dbPath));
+
+        if (excelPath is null || !File.Exists(excelPath))
+        {
+            Console.Error.WriteLine(excelPath is null
+                ? "Usage: CostWise.ApplySheet <excel.xlsx> [--apply] --db <path> | --force-local"
+                : $"File not found: {excelPath}");
+            return 1;
+        }
 
         Console.WriteLine($"Reading {excelPath}");
         Console.WriteLine(apply ? "Mode: APPLY (database will be modified)" : "Mode: DRY-RUN (no database writes)");
@@ -234,6 +246,18 @@ internal static class Program
         {
             if (!map.ContainsKey(name))
                 throw new InvalidOperationException($"Missing column '{name}'. Found: {string.Join(", ", map.Keys)}");
+        }
+    }
+
+    private static bool IsSamePath(string candidate, string dbPath)
+    {
+        try
+        {
+            return string.Equals(Path.GetFullPath(candidate), dbPath, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
         }
     }
 

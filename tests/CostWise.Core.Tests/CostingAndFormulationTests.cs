@@ -38,7 +38,8 @@ public class CostingCalculatorTests
         Assert.Equal(1000m, result.RmCost);
         Assert.Equal(0m, result.ExportDocCost);
         Assert.Equal(1070m, result.TotalCost);
-        Assert.Equal(1177m, result.SellingPrice);
+        // Gross margin 10% on sell → 1070 / 0.9
+        Assert.Equal(1188.89m, result.SellingPrice);
     }
 
     [Fact]
@@ -77,7 +78,8 @@ public class CostingCalculatorTests
 
         Assert.Equal(30m, result.ExportDocCost);
         Assert.Equal(1110m, result.TotalCost);
-        Assert.Equal(1221m, result.SellingPrice);
+        // Gross margin 10% on sell → 1110 / 0.9
+        Assert.Equal(1233.33m, result.SellingPrice);
     }
 
     [Fact]
@@ -87,6 +89,51 @@ public class CostingCalculatorTests
         Assert.Equal(25m, CostingCalculator.ToBag(1000m));
         Assert.Equal(25m, CostingCalculator.ApplyUnit(1000m, PriceUnit.PerBag25Kg));
         Assert.Equal(1000m, CostingCalculator.ApplyUnit(1000m, PriceUnit.PerMt));
+    }
+
+    [Fact]
+    public void RoundToIncrement_ZeroKeepsTwoDecimals()
+    {
+        Assert.Equal(1221.56m, CostingCalculator.RoundToIncrement(1221.555m, 0m));
+    }
+
+    [Fact]
+    public void RoundToIncrement_RoundsToNearestMultiple()
+    {
+        Assert.Equal(1200m, CostingCalculator.RoundToIncrement(1221m, 100m));
+        Assert.Equal(1250m, CostingCalculator.RoundToIncrement(1225m, 50m));
+        Assert.Equal(30m, CostingCalculator.RoundToIncrement(27.6m, 5m));
+        Assert.Equal(25m, CostingCalculator.RoundToIncrement(27.4m, 5m));
+    }
+
+    [Fact]
+    public void FromBag_MultipliesByForty()
+    {
+        Assert.Equal(100000m, CostingCalculator.FromBag(2500m));
+    }
+
+    [Fact]
+    public void GrossMarginPercent_OnSellingPrice()
+    {
+        Assert.Equal(14.6m, CostingCalculator.GrossMarginPercent(100000m, 85402m));
+        Assert.Null(CostingCalculator.GrossMarginPercent(0m, 100m));
+    }
+
+    [Fact]
+    public void Calculate_MarginPercent_MatchesGrossMarginOnSell()
+    {
+        var result = CostingCalculator.CalculateForPriceBook(
+            ingredients: new[] { new IngredientCostLine(100m, 85402m) },
+            conversionCost: 0m,
+            packingCost: 0m,
+            exportDocCost: 0m,
+            specialAdditiveCost: 0m,
+            transportationCost: 0m,
+            marginPercent: 14.5m);
+
+        Assert.Equal(85402m, result.TotalCost);
+        var gm = CostingCalculator.GrossMarginPercent(result.SellingPrice, result.TotalCost);
+        Assert.Equal(14.5m, gm);
     }
 }
 

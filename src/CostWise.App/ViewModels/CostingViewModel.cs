@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CostWise.App.Controls;
 using CostWise.App.Services;
 using CostWise.Core.Entities;
 using CostWise.Core.Enums;
@@ -18,6 +19,8 @@ public partial class CostingViewModel : ObservableObject
 
     public ObservableCollection<Formulation> Formulations { get; } = new();
     public ObservableCollection<CostingScenario> SavedScenarios { get; } = new();
+    public ObservableCollection<CostingScenario> FilteredScenarios { get; } = new();
+    public IColumnFilterHost FilterHost { get; }
     public ObservableCollection<PricingCostOptionChoice> PackingChoices { get; } = new();
     public ObservableCollection<PricingCostOptionChoice> DocumentChoices { get; } = new();
     public ObservableCollection<PricingCostOptionChoice> AdditiveChoices { get; } = new();
@@ -62,6 +65,30 @@ public partial class CostingViewModel : ObservableObject
         _preferences = preferences;
         SelectedPriceUnitOption = PriceUnitOptions[0];
         _preferences.Changed += (_, _) => RefreshMoneyDisplay();
+        FilterHost = new ColumnFilterController<CostingScenario>(
+            () => SavedScenarios,
+            list =>
+            {
+                FilteredScenarios.Clear();
+                foreach (var item in list)
+                    FilteredScenarios.Add(item);
+            },
+            new Dictionary<string, Func<CostingScenario, string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Name"] = s => s.Name,
+                ["Formula"] = s => s.Formulation?.Code ?? string.Empty,
+                ["Market"] = s => s.Market.ToString(),
+                ["Total"] = s => s.SnapshotTotalCost.ToString("0.##"),
+                ["Sell"] = s => s.SnapshotSellingPrice.ToString("0.##")
+            },
+            new Dictionary<string, Func<CostingScenario, IComparable?>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Name"] = s => s.Name,
+                ["Formula"] = s => s.Formulation?.Code ?? string.Empty,
+                ["Market"] = s => s.Market.ToString(),
+                ["Total"] = s => s.SnapshotTotalCost,
+                ["Sell"] = s => s.SnapshotSellingPrice
+            });
         _ = LoadAsync();
     }
 
@@ -78,6 +105,7 @@ public partial class CostingViewModel : ObservableObject
         SavedScenarios.Clear();
         foreach (var s in scenarios)
             SavedScenarios.Add(s);
+        ((ColumnFilterController<CostingScenario>)FilterHost).Apply();
     }
 
     partial void OnSelectedFormulationChanged(Formulation? value) => Recalculate();
@@ -182,7 +210,11 @@ public partial class CostingViewModel : ObservableObject
                      .Take(50)
                      .ToListAsync())
             SavedScenarios.Add(s);
+        ((ColumnFilterController<CostingScenario>)FilterHost).Apply();
     }
+
+    [RelayCommand]
+    private void ResetAllFilters() => FilterHost.ResetAll();
 
     private void Recalculate()
     {

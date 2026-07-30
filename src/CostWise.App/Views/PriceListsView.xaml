@@ -1,0 +1,471 @@
+<UserControl x:Class="CostWise.App.Views.PriceListsView"
+             x:Name="Root"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:enums="clr-namespace:CostWise.Core.Enums;assembly=CostWise.Core">
+    <DockPanel>
+        <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
+                   Foreground="{StaticResource TextMutedBrush}" Margin="0,8,0,0"/>
+        <TabControl>
+            <!-- Victory Group -->
+            <TabItem Header="Victory Group">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="400"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Live preview -->
+                    <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Padding="8">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="True">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Content="−" Width="28" Padding="0,2"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding ZoomVictoryPreviewOutCommand}"
+                                            ToolTip="Zoom out (Ctrl+Mouse wheel)"/>
+                                    <TextBlock Text="{Binding VictoryPreviewZoomLabel}"
+                                               Width="48" TextAlignment="Center" VerticalAlignment="Center"
+                                               Margin="6,0"/>
+                                    <Button Content="+" Width="28" Padding="0,2"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding ZoomVictoryPreviewInCommand}"
+                                            ToolTip="Zoom in (Ctrl+Mouse wheel)"/>
+                                </StackPanel>
+                                <TextBlock Text="Live preview" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <TextBlock DockPanel.Dock="Top"
+                                       Text="{Binding VictoryPreviewStatus}"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Margin="0,0,0,8"
+                                       TextWrapping="Wrap"/>
+                            <ScrollViewer x:Name="VictoryPreviewScroller"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Auto"
+                                          PreviewMouseWheel="VictoryPreviewScroller_OnPreviewMouseWheel">
+                                <ItemsControl ItemsSource="{Binding VictoryPreviewPages}">
+                                    <ItemsControl.LayoutTransform>
+                                        <ScaleTransform ScaleX="{Binding VictoryPreviewZoom}"
+                                                        ScaleY="{Binding VictoryPreviewZoom}"/>
+                                    </ItemsControl.LayoutTransform>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Margin="0,0,0,12" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1"
+                                                    Background="White" HorizontalAlignment="Center">
+                                                <Image Source="{Binding}" Stretch="Uniform" Width="720"/>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </DockPanel>
+                    </Border>
+
+                    <!-- Controls -->
+                    <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <TextBlock Text="Victory Group pricing brief" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            <StackPanel Margin="0,0,0,12">
+                                <TextBlock Text="Price book A" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                <ComboBox ItemsSource="{Binding VictoryBooks}"
+                                          SelectedItem="{Binding VictoryBookA}"
+                                          DisplayMemberPath="Name" Margin="0,0,0,4"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="Round Sale Price to" Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" TextWrapping="NoWrap"/>
+                                    <TextBox Width="80"
+                                             Text="{Binding RoundBookATo, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"/>
+                                </StackPanel>
+                                <TextBlock Text="Price book B" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                <ComboBox ItemsSource="{Binding VictoryBooks}"
+                                          SelectedItem="{Binding VictoryBookB}"
+                                          DisplayMemberPath="Name" Margin="0,0,0,4"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <TextBlock Text="Round Sale Price to" Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" TextWrapping="NoWrap"/>
+                                    <TextBox Width="80"
+                                             Text="{Binding RoundBookBTo, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"/>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Round Δ % to" Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center" Margin="0,0,8,0" TextWrapping="NoWrap"/>
+                                    <TextBox Width="80"
+                                             Text="{Binding RoundDeltaPercentTo, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"
+                                             ToolTip="0 = no rounding; otherwise round Δ% / Change% to this increment"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <TextBlock Text="Raw material price changes (select which to include)" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <TextBlock Text="Previous prices as of" Foreground="{StaticResource TextMutedBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <Grid>
+                                    <Button x:Name="VictoryPreviousDateButton"
+                                            MinWidth="200"
+                                            HorizontalContentAlignment="Left"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Click="VictoryPreviousDateButton_OnClick"
+                                            Padding="10,4">
+                                        <TextBlock Text="{Binding SelectedVictoryPreviousDate.Label, TargetNullValue=Auto (last change)}"/>
+                                    </Button>
+                                    <Popup x:Name="VictoryPreviousDatePopup"
+                                           PlacementTarget="{Binding ElementName=VictoryPreviousDateButton}"
+                                           Placement="Bottom"
+                                           StaysOpen="False"
+                                           AllowsTransparency="True"
+                                           Opened="VictoryPreviousDatePopup_OnOpened"
+                                           Closed="VictoryPreviousDatePopup_OnClosed">
+                                        <Border Background="{StaticResource CardBgBrush}"
+                                                BorderBrush="{StaticResource BorderSoftBrush}"
+                                                BorderThickness="1"
+                                                Padding="4"
+                                                MinWidth="220"
+                                                MaxHeight="280">
+                                            <DockPanel>
+                                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,4">
+                                                    <TextBlock Text="Search" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                               Foreground="{StaticResource TextMutedBrush}"/>
+                                                    <TextBox x:Name="VictoryPreviousDateSearchBox"
+                                                             MinWidth="140"
+                                                             Text="{Binding VictoryPreviousDateFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </StackPanel>
+                                                <ListBox x:Name="VictoryPreviousDateList"
+                                                         ItemsSource="{Binding FilteredVictoryPreviousDateOptions}"
+                                                         SelectedItem="{Binding SelectedVictoryPreviousDate}"
+                                                         DisplayMemberPath="Label"
+                                                         BorderThickness="0"
+                                                         SelectionChanged="VictoryPreviousDateList_OnSelectionChanged"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
+                            </StackPanel>
+                            <Border Style="{StaticResource CardBorderStyle}" MaxHeight="180" Margin="0,0,0,12">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding RawMaterials}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <CheckBox Content="{Binding Name}" IsChecked="{Binding IsSelected}" Margin="0,2"/>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Border>
+
+                            <Grid Margin="0,0,0,12" HorizontalAlignment="Left">
+                                <Button x:Name="VictoryColumnsButton"
+                                        Content="Columns"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Click="VictoryColumnsButton_OnClick"
+                                        Padding="12,4"
+                                        HorizontalAlignment="Left"/>
+                                <Popup x:Name="VictoryColumnsPopup"
+                                       PlacementTarget="{Binding ElementName=VictoryColumnsButton}"
+                                       Placement="Bottom"
+                                       StaysOpen="False"
+                                       AllowsTransparency="True">
+                                    <Border Background="{StaticResource CardBgBrush}"
+                                            BorderBrush="{StaticResource BorderSoftBrush}"
+                                            BorderThickness="1"
+                                            Padding="12"
+                                            MinWidth="200"
+                                            MaxHeight="320">
+                                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                            <StackPanel>
+                                                <TextBlock Text="Show columns" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                                <ItemsControl ItemsSource="{Binding ColumnToggles}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <CheckBox Content="{Binding Name}"
+                                                                      IsChecked="{Binding IsVisible}"
+                                                                      Margin="0,2"/>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <TextBlock Text="Compare sell prices to" Foreground="{StaticResource TextMutedBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <Grid>
+                                    <Button x:Name="VictorySellCompareButton"
+                                            MinWidth="280"
+                                            HorizontalContentAlignment="Left"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Click="VictorySellCompareButton_OnClick"
+                                            Padding="10,4">
+                                        <TextBlock Text="{Binding SelectedVictorySellCompare.Label, TargetNullValue=None}"/>
+                                    </Button>
+                                    <Popup x:Name="VictorySellComparePopup"
+                                           PlacementTarget="{Binding ElementName=VictorySellCompareButton}"
+                                           Placement="Bottom"
+                                           StaysOpen="False"
+                                           AllowsTransparency="True"
+                                           Opened="VictorySellComparePopup_OnOpened"
+                                           Closed="VictorySellComparePopup_OnClosed">
+                                        <Border Background="{StaticResource CardBgBrush}"
+                                                BorderBrush="{StaticResource BorderSoftBrush}"
+                                                BorderThickness="1"
+                                                Padding="4"
+                                                MinWidth="300"
+                                                MaxHeight="280">
+                                            <DockPanel>
+                                                <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,4">
+                                                    <TextBlock Text="Search" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                               Foreground="{StaticResource TextMutedBrush}"/>
+                                                    <TextBox x:Name="VictorySellCompareSearchBox"
+                                                             MinWidth="200"
+                                                             Text="{Binding VictorySellCompareFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                                                </StackPanel>
+                                                <ListBox x:Name="VictorySellCompareList"
+                                                         ItemsSource="{Binding FilteredVictorySellCompareOptions}"
+                                                         SelectedItem="{Binding SelectedVictorySellCompare}"
+                                                         DisplayMemberPath="Label"
+                                                         BorderThickness="0"
+                                                         SelectionChanged="VictorySellCompareList_OnSelectionChanged"/>
+                                            </DockPanel>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
+                            </StackPanel>
+
+                            <TextBlock Text="Commentary" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <TextBox Text="{Binding Commentary, UpdateSourceTrigger=PropertyChanged}"
+                                     AcceptsReturn="True" TextWrapping="Wrap" Height="90" Margin="0,0,0,12"
+                                     VerticalScrollBarVisibility="Auto"/>
+
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Save snapshot"
+                                        Style="{StaticResource SecondaryButtonStyle}"
+                                        Command="{Binding SaveVictorySellSnapshotCommand}"
+                                        ToolTip="Record current sell prices for later Last Price comparison"/>
+                                <Button Content="Download PDF"
+                                        Style="{StaticResource PrimaryButtonStyle}"
+                                        Margin="8,0,0,0"
+                                        Command="{Binding DownloadVictoryPdfCommand}"/>
+                            </StackPanel>                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <!-- Commercial -->
+            <TabItem Header="Commercial">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="240"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,12,0">
+                        <DockPanel>
+                            <StackPanel DockPanel.Dock="Top" Margin="0,0,0,8">
+                                <TextBox Text="{Binding NewCommercialListName, UpdateSourceTrigger=PropertyChanged}"
+                                         Margin="0,0,0,6"/>
+                                <Button Content="Add list" Style="{StaticResource PrimaryButtonStyle}"
+                                        Command="{Binding AddCommercialListCommand}"/>
+                            </StackPanel>
+                            <ListBox x:Name="CommercialListsBox"
+                                     ItemsSource="{Binding CommercialLists}"
+                                     SelectedItem="{Binding SelectedCommercialList}"
+                                     BorderThickness="0"
+                                     AllowDrop="True"
+                                     PreviewMouseLeftButtonDown="CommercialListsBox_OnPreviewMouseLeftButtonDown"
+                                     PreviewMouseMove="CommercialListsBox_OnPreviewMouseMove"
+                                     DragOver="CommercialListsBox_OnDragOver"
+                                     Drop="CommercialListsBox_OnDrop">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid MinHeight="22">
+                                            <TextBlock Text="{Binding Name}"
+                                                       VerticalAlignment="Center"
+                                                       Padding="2,2"
+                                                       MouseLeftButtonDown="CommercialListName_OnMouseLeftButtonDown">
+                                                <TextBlock.Visibility>
+                                                    <MultiBinding Converter="{StaticResource IdMatchToVisibility}" ConverterParameter="Invert">
+                                                        <Binding Path="Id"/>
+                                                        <Binding Path="DataContext.RenamingListId" ElementName="Root"/>
+                                                    </MultiBinding>
+                                                </TextBlock.Visibility>
+                                            </TextBlock>
+                                            <TextBox Text="{Binding DataContext.RenameDraftName, ElementName=Root, UpdateSourceTrigger=PropertyChanged}"
+                                                     VerticalAlignment="Center"
+                                                     Padding="2,1"
+                                                     IsVisibleChanged="CommercialListRenameBox_OnIsVisibleChanged"
+                                                     LostFocus="CommercialListRenameBox_OnLostFocus"
+                                                     KeyDown="CommercialListRenameBox_OnKeyDown">
+                                                <TextBox.Visibility>
+                                                    <MultiBinding Converter="{StaticResource IdMatchToVisibility}">
+                                                        <Binding Path="Id"/>
+                                                        <Binding Path="DataContext.RenamingListId" ElementName="Root"/>
+                                                    </MultiBinding>
+                                                </TextBox.Visibility>
+                                            </TextBox>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
+
+                    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <StackPanel Width="160" Margin="0,0,12,0">
+                                    <TextBlock Text="Effective date" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                    <DatePicker SelectedDate="{Binding EditEffectiveDate}"/>
+                                </StackPanel>
+                                <StackPanel Width="180" Margin="0,0,12,0">
+                                    <TextBlock Text="Currency" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                    <ComboBox ItemsSource="{Binding Currencies}"
+                                              SelectedItem="{Binding EditCurrency}"
+                                              DisplayMemberPath="Code"/>
+                                </StackPanel>
+                                <StackPanel Width="140" Margin="0,0,12,0">
+                                    <TextBlock Text="Sale unit" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4"/>
+                                    <ComboBox ItemsSource="{Binding SellUnitOptions}"
+                                              SelectedItem="{Binding EditSellUnit}">
+                                        <ComboBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock>
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Text" Value="Per MT"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding}" Value="{x:Static enums:PriceUnit.PerBag25Kg}">
+                                                                    <Setter Property="Text" Value="Per bag"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </DataTemplate>
+                                        </ComboBox.ItemTemplate>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom">
+                                    <Button Content="Save" Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding SaveCommercialListCommand}"/>
+                                    <Button Content="Remove list" Style="{StaticResource DangerButtonStyle}" Margin="8,0,0,0"
+                                            Command="{Binding RemoveCommercialListCommand}"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <TextBlock Text="Assigned price books" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                <ComboBox Width="240" ItemsSource="{Binding AvailableBooksForAssign}"
+                                          SelectedItem="{Binding BookToAssign}" DisplayMemberPath="Name"/>
+                                <Button Content="Add book" Style="{StaticResource PrimaryButtonStyle}" Margin="8,0,0,0"
+                                        Command="{Binding AssignBookCommand}"/>
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding AssignedBooks}" Margin="0,0,0,12">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <DockPanel Margin="0,0,0,4">
+                                            <Button DockPanel.Dock="Right" Content="Remove" Style="{StaticResource DangerButtonStyle}"
+                                                    Command="{Binding DataContext.UnassignBookCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"/>
+                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                        </DockPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <StackPanel Width="150" Margin="0,0,12,0">
+                                    <TextBlock Text="Round Sale Price to" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4" TextWrapping="NoWrap"/>
+                                    <TextBox Text="{Binding RoundSaleTo, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"/>
+                                </StackPanel>
+                                <StackPanel Width="90" Margin="0,0,12,0">
+                                    <TextBlock Text="Round CP to" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4" TextWrapping="NoWrap"/>
+                                    <TextBox Text="{Binding RoundCpTo, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"/>
+                                </StackPanel>
+                                <StackPanel Width="90" Margin="0,0,16,0">
+                                    <TextBlock Text="Round Fat to" Foreground="{StaticResource TextMutedBrush}" Margin="0,0,0,4" TextWrapping="NoWrap"/>
+                                    <TextBox Text="{Binding RoundFatTo, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}"/>
+                                </StackPanel>
+                                <Grid VerticalAlignment="Bottom">
+                                    <Button x:Name="CommercialColumnsButton"
+                                            Content="Columns"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Click="CommercialColumnsButton_OnClick"
+                                            Padding="12,4"/>
+                                    <Popup x:Name="CommercialColumnsPopup"
+                                           PlacementTarget="{Binding ElementName=CommercialColumnsButton}"
+                                           Placement="Bottom"
+                                           StaysOpen="False"
+                                           AllowsTransparency="True">
+                                        <Border Background="{StaticResource CardBgBrush}"
+                                                BorderBrush="{StaticResource BorderSoftBrush}"
+                                                BorderThickness="1"
+                                                Padding="12"
+                                                MinWidth="180">
+                                            <StackPanel>
+                                                <TextBlock Text="Show columns" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                                                <ItemsControl ItemsSource="{Binding CommercialColumnToggles}">
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <CheckBox Content="{Binding Name}"
+                                                                      IsChecked="{Binding IsVisible}"
+                                                                      Margin="0,2"/>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                            </StackPanel>
+                                        </Border>
+                                    </Popup>
+                                </Grid>
+                            </StackPanel>
+
+                            <TextBlock Text="Preview" FontWeight="SemiBold" Margin="0,0,0,6"/>
+                            <DataGrid x:Name="CommercialPreviewGrid"
+                                      ItemsSource="{Binding CommercialPreviewRows}"
+                                      AutoGenerateColumns="False" IsReadOnly="True"
+                                      HeadersVisibility="Column"
+                                      CanUserAddRows="False"
+                                      HorizontalAlignment="Left"
+                                      MaxHeight="320" Margin="0,0,0,12">
+                                <DataGrid.Resources>
+                                    <Style x:Key="RightAlignCell" TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right"/>
+                                        <Setter Property="TextAlignment" Value="Right"/>
+                                        <Setter Property="Padding" Value="4,0"/>
+                                    </Style>
+                                    <Style x:Key="RightAlignHeader" TargetType="DataGridColumnHeader">
+                                        <Setter Property="HorizontalContentAlignment" Value="Right"/>
+                                    </Style>
+                                </DataGrid.Resources>
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Category" Binding="{Binding CategoryName}" Width="140"/>
+                                    <DataGridTextColumn Header="Feed type" Binding="{Binding FeedTypeName}" Width="160"/>
+                                    <DataGridTextColumn Header="Size" Binding="{Binding SizeName}" Width="70"/>
+                                    <DataGridTextColumn Header="CP" Binding="{Binding CpDisplay}" Width="70"
+                                                        ElementStyle="{StaticResource RightAlignCell}"
+                                                        HeaderStyle="{StaticResource RightAlignHeader}"/>
+                                    <DataGridTextColumn Header="Fat" Binding="{Binding FatDisplay}" Width="70"
+                                                        ElementStyle="{StaticResource RightAlignCell}"
+                                                        HeaderStyle="{StaticResource RightAlignHeader}"/>
+                                    <DataGridTextColumn Header="Sale" Binding="{Binding SaleDisplay}" Width="140"
+                                                        ElementStyle="{StaticResource RightAlignCell}"
+                                                        HeaderStyle="{StaticResource RightAlignHeader}"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="View PDF" Style="{StaticResource SecondaryButtonStyle}"
+                                        Command="{Binding ViewCommercialPdfCommand}"/>
+                                <Button Content="Download PDF" Style="{StaticResource PrimaryButtonStyle}"
+                                        Margin="8,0,0,0"
+                                        Command="{Binding DownloadCommercialPdfCommand}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</UserControl>

@@ -15,16 +15,23 @@ public class CostWiseDbContext : DbContext
     public DbSet<SubCategory> SubCategories => Set<SubCategory>();
     public DbSet<Size> Sizes => Set<Size>();
     public DbSet<RawIngredient> RawIngredients => Set<RawIngredient>();
+    public DbSet<RawIngredientPriceHistory> RawIngredientPriceHistories => Set<RawIngredientPriceHistory>();
+    public DbSet<Currency> Currencies => Set<Currency>();
     public DbSet<SpecParameter> SpecParameters => Set<SpecParameter>();
     public DbSet<Formulation> Formulations => Set<Formulation>();
     public DbSet<FormulationIngredient> FormulationIngredients => Set<FormulationIngredient>();
     public DbSet<FormulationSpec> FormulationSpecs => Set<FormulationSpec>();
     public DbSet<CostingScenario> CostingScenarios => Set<CostingScenario>();
     public DbSet<PriceBook> PriceBooks => Set<PriceBook>();
+    public DbSet<PriceBookFormulation> PriceBookFormulations => Set<PriceBookFormulation>();
     public DbSet<PricingCostOption> PricingCostOptions => Set<PricingCostOption>();
     public DbSet<ProductionGroup> ProductionGroups => Set<ProductionGroup>();
     public DbSet<ProductionGroupFormulation> ProductionGroupFormulations => Set<ProductionGroupFormulation>();
     public DbSet<FormulationChangeLog> FormulationChangeLogs => Set<FormulationChangeLog>();
+    public DbSet<CommercialPriceList> CommercialPriceLists => Set<CommercialPriceList>();
+    public DbSet<CommercialPriceListBook> CommercialPriceListBooks => Set<CommercialPriceListBook>();
+    public DbSet<VictoryReportSnapshot> VictoryReportSnapshots => Set<VictoryReportSnapshot>();
+    public DbSet<VictoryReportSnapshotLine> VictoryReportSnapshotLines => Set<VictoryReportSnapshotLine>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -68,6 +75,18 @@ public class CostWiseDbContext : DbContext
             e.Property(x => x.Name).HasMaxLength(150).IsRequired();
             e.Property(x => x.PricePerMt).HasPrecision(18, 2);
             e.HasIndex(x => x.Name).IsUnique();
+        });
+
+        modelBuilder.Entity<RawIngredientPriceHistory>(e =>
+        {
+            e.Property(x => x.PricePerMt).HasPrecision(18, 2);
+            e.Property(x => x.ExchangeRateKesPerUsd).HasPrecision(18, 6);
+            e.Property(x => x.PricePerMtUsd).HasPrecision(18, 2);
+            e.HasOne(x => x.RawIngredient)
+                .WithMany(x => x.PriceHistory)
+                .HasForeignKey(x => x.RawIngredientId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.RawIngredientId, x.ChangedAtUtc });
         });
 
         modelBuilder.Entity<SpecParameter>(e =>
@@ -182,6 +201,8 @@ public class CostWiseDbContext : DbContext
             e.Property(x => x.SpecialAdditiveCost).HasPrecision(18, 2);
             e.Property(x => x.ExportDocCost).HasPrecision(18, 2);
             e.Property(x => x.MarginPercent).HasPrecision(8, 2);
+            e.Property(x => x.RoundMtTo).HasPrecision(18, 2);
+            e.Property(x => x.RoundBagTo).HasPrecision(18, 2);
             e.HasIndex(x => x.Name).IsUnique();
             e.HasOne(x => x.PackingOption)
                 .WithMany()
@@ -195,6 +216,33 @@ public class CostWiseDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(x => x.AdditiveOptionId)
                 .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.DisplayCurrency)
+                .WithMany()
+                .HasForeignKey(x => x.DisplayCurrencyId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Currency>(e =>
+        {
+            e.Property(x => x.Code).HasMaxLength(10).IsRequired();
+            e.Property(x => x.Name).HasMaxLength(80).IsRequired();
+            e.Property(x => x.KesPerUnit).HasPrecision(18, 6);
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<PriceBookFormulation>(e =>
+        {
+            e.Property(x => x.OverrideSellPriceMt).HasPrecision(18, 2);
+            e.Property(x => x.OverrideSellPriceBag).HasPrecision(18, 2);
+            e.HasOne(x => x.PriceBook)
+                .WithMany(x => x.Formulations)
+                .HasForeignKey(x => x.PriceBookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Formulation)
+                .WithMany()
+                .HasForeignKey(x => x.FormulationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.PriceBookId, x.FormulationId }).IsUnique();
         });
 
         modelBuilder.Entity<ProductionGroup>(e =>
@@ -214,6 +262,67 @@ public class CostWiseDbContext : DbContext
                 .HasForeignKey(x => x.FormulationId)
                 .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => new { x.ProductionGroupId, x.FormulationId }).IsUnique();
+        });
+
+        modelBuilder.Entity<CommercialPriceList>(e =>
+        {
+            e.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            e.HasIndex(x => x.Name).IsUnique();
+            e.HasOne(x => x.Currency)
+                .WithMany()
+                .HasForeignKey(x => x.CurrencyId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<CommercialPriceListBook>(e =>
+        {
+            e.HasOne(x => x.CommercialPriceList)
+                .WithMany(x => x.Books)
+                .HasForeignKey(x => x.CommercialPriceListId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.PriceBook)
+                .WithMany()
+                .HasForeignKey(x => x.PriceBookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.CommercialPriceListId, x.PriceBookId }).IsUnique();
+            e.HasIndex(x => x.PriceBookId).IsUnique();
+        });
+
+        modelBuilder.Entity<VictoryReportSnapshot>(e =>
+        {
+            e.Property(x => x.Label).HasMaxLength(200).IsRequired();
+            e.Property(x => x.Note).HasMaxLength(500);
+            e.Property(x => x.BookAMarginPercent).HasPrecision(8, 2);
+            e.Property(x => x.BookBMarginPercent).HasPrecision(8, 2);
+            e.HasOne(x => x.BookA)
+                .WithMany()
+                .HasForeignKey(x => x.BookAId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.BookB)
+                .WithMany()
+                .HasForeignKey(x => x.BookBId)
+                .OnDelete(DeleteBehavior.Restrict);
+            e.HasIndex(x => x.CreatedAtUtc);
+        });
+
+        modelBuilder.Entity<VictoryReportSnapshotLine>(e =>
+        {
+            e.Property(x => x.SellMt).HasPrecision(18, 2);
+            e.Property(x => x.SellBag).HasPrecision(18, 2);
+            e.Property(x => x.CurrencyCode).HasMaxLength(10).IsRequired();
+            e.HasOne(x => x.Snapshot)
+                .WithMany(x => x.Lines)
+                .HasForeignKey(x => x.SnapshotId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.PriceBook)
+                .WithMany()
+                .HasForeignKey(x => x.PriceBookId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Formulation)
+                .WithMany()
+                .HasForeignKey(x => x.FormulationId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.SnapshotId, x.PriceBookId, x.FormulationId }).IsUnique();
         });
     }
 }

@@ -7,6 +7,7 @@ public interface INavigationService
     event Action<object?>? CurrentViewModelChanged;
     object? CurrentViewModel { get; }
     void NavigateTo<TViewModel>() where TViewModel : class;
+    void NavigateTo<TViewModel>(Action<TViewModel>? configure) where TViewModel : class;
 }
 
 public sealed class NavigationService : INavigationService
@@ -22,9 +23,14 @@ public sealed class NavigationService : INavigationService
 
     public event Action<object?>? CurrentViewModelChanged;
 
-    public void NavigateTo<TViewModel>() where TViewModel : class
+    public void NavigateTo<TViewModel>() where TViewModel : class =>
+        NavigateTo<TViewModel>(configure: null);
+
+    public void NavigateTo<TViewModel>(Action<TViewModel>? configure) where TViewModel : class
     {
-        CurrentViewModel = _services.GetRequiredService<TViewModel>();
+        var vm = _services.GetRequiredService<TViewModel>();
+        configure?.Invoke(vm);
+        CurrentViewModel = vm;
         CurrentViewModelChanged?.Invoke(CurrentViewModel);
     }
 }

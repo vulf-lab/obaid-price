@@ -150,6 +150,12 @@ public partial class ProductionMatrixView
             });
             header.Children.Add(new TextBlock
             {
+                Text = colMeta.FeedTypeName,
+                TextAlignment = TextAlignment.Center,
+                Foreground = (Brush)FindResource("TextMutedBrush")
+            });
+            header.Children.Add(new TextBlock
+            {
                 Text = colMeta.SizeName,
                 TextAlignment = TextAlignment.Center,
                 Foreground = (Brush)FindResource("TextMutedBrush")

@@ -12,7 +12,7 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
+      <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
     <PackageReference Include="QuestPDF" Version="2024.10.3" />
   </ItemGroup>
 
@@ -23,6 +23,16 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationTitle>OBAID Pricing</ApplicationTitle>
+    <Product>OBAID Pricing</Product>
+    <AssemblyTitle>OBAID Pricing</AssemblyTitle>
+    <ApplicationIcon>Assets\obaid-pricing-logo.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\obaid-pricing-logo.png" />
+    <Resource Include="Assets\obaid-pricing-logo-dark.png" />
+    <None Include="Assets\obaid-pricing-logo.ico" />
+  </ItemGroup>
 
 </Project>

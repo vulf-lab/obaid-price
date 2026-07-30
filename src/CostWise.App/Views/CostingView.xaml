@@ -1,6 +1,7 @@
 <UserControl x:Class="CostWise.App.Views.CostingView"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:CostWise.App.Controls">
     <DockPanel>
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}" Foreground="{StaticResource TextMutedBrush}" Margin="0,8,0,0"/>
         <Grid>
@@ -48,10 +49,10 @@
                                   Margin="0,0,0,12"/>
 
                         <TextBlock Text="Transportation (optional)" Foreground="{StaticResource TextMutedBrush}"/>
-                        <TextBox Text="{Binding TransportationCost, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
+                        <TextBox Text="{Binding TransportationCost, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}" Margin="0,0,0,12"/>
 
                         <TextBlock Text="Margin %" Foreground="{StaticResource TextMutedBrush}"/>
-                        <TextBox Text="{Binding MarginPercent, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12"/>
+                        <TextBox Text="{Binding MarginPercent, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.##}}" Margin="0,0,0,12"/>
 
                         <TextBlock Text="Display unit" Foreground="{StaticResource TextMutedBrush}"/>
                         <ComboBox ItemsSource="{Binding PriceUnitOptions}"
@@ -93,18 +94,47 @@
 
                 <Border Style="{StaticResource CardBorderStyle}">
                     <DockPanel>
-                        <TextBlock DockPanel.Dock="Top" Text="Saved scenarios (snapshots)" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Saved scenarios (snapshots)" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <Button Content="Reset all filters" Style="{StaticResource SecondaryButtonStyle}" Margin="12,0,0,0"
+                                    Command="{Binding ResetAllFiltersCommand}"/>
+                        </StackPanel>
                         <DataGrid x:Name="ScenariosGrid"
-                                  ItemsSource="{Binding SavedScenarios}"
+                                  ItemsSource="{Binding FilteredScenarios}"
                                   IsReadOnly="True"
                                   Loaded="ScenariosGrid_OnLoaded"
                                   Unloaded="ScenariosGrid_OnUnloaded">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="220" MinWidth="120"/>
-                                <DataGridTextColumn Header="Formula" Binding="{Binding Formulation.Code}" Width="90" MinWidth="70"/>
-                                <DataGridTextColumn Header="Market" Binding="{Binding Market}" Width="90" MinWidth="70"/>
-                                <DataGridTextColumn Header="Total" Binding="{Binding SnapshotTotalCost, Converter={StaticResource MoneyFormat}}" Width="90" MinWidth="70"/>
-                                <DataGridTextColumn Header="Sell" Binding="{Binding SnapshotSellingPrice, Converter={StaticResource MoneyFormat}}" Width="90" MinWidth="70"/>
+                                <DataGridTextColumn Binding="{Binding Name}" Width="220" MinWidth="120">
+                                    <DataGridTextColumn.Header>
+                                        <controls:ExcelColumnFilterHeader Title="Name" ColumnKey="Name"
+                                                                          Host="{Binding DataContext.FilterHost, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                    </DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Binding="{Binding Formulation.Code}" Width="90" MinWidth="70">
+                                    <DataGridTextColumn.Header>
+                                        <controls:ExcelColumnFilterHeader Title="Formula" ColumnKey="Formula"
+                                                                          Host="{Binding DataContext.FilterHost, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                    </DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Binding="{Binding Market}" Width="90" MinWidth="70">
+                                    <DataGridTextColumn.Header>
+                                        <controls:ExcelColumnFilterHeader Title="Market" ColumnKey="Market"
+                                                                          Host="{Binding DataContext.FilterHost, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                    </DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Binding="{Binding SnapshotTotalCost, Converter={StaticResource MoneyFormat}}" Width="90" MinWidth="70">
+                                    <DataGridTextColumn.Header>
+                                        <controls:ExcelColumnFilterHeader Title="Total" ColumnKey="Total" AllowValueFilter="False"
+                                                                          Host="{Binding DataContext.FilterHost, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                    </DataGridTextColumn.Header>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Binding="{Binding SnapshotSellingPrice, Converter={StaticResource MoneyFormat}}" Width="90" MinWidth="70">
+                                    <DataGridTextColumn.Header>
+                                        <controls:ExcelColumnFilterHeader Title="Sell" ColumnKey="Sell" AllowValueFilter="False"
+                                                                          Host="{Binding DataContext.FilterHost, RelativeSource={RelativeSource AncestorType=UserControl}}"/>
+                                    </DataGridTextColumn.Header>
+                                </DataGridTextColumn>
                             </DataGrid.Columns>
                         </DataGrid>
                     </DockPanel>

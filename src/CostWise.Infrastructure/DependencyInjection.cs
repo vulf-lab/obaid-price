@@ -21,6 +21,14 @@ public static class DependencyInjection
             .CreateDbContextAsync();
         await db.Database.MigrateAsync();
         await DbSeeder.SeedAsync(db);
+        await FeedTypeNormalizer.NormalizeAsync(db);
+        await SpecParameterNormalizer.NormalizeAsync(db);
+        // Orphan cleanup is opt-in: set COSTWISE_RUN_ORPHAN_CLEANUP=1 for one-shot deletes.
+        if (string.Equals(
+                Environment.GetEnvironmentVariable("COSTWISE_RUN_ORPHAN_CLEANUP"),
+                "1",
+                StringComparison.Ordinal))
+            await FormulationOrphanCleanup.DeleteOrphanIfPresentAsync(db);
         await SystemIdGenerator.EnsureAllAssignedAsync(db);
     }
 

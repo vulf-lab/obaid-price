@@ -56,6 +56,12 @@ public partial class SettingsView
     private void AdditiveOptionsGrid_OnUnloaded(object sender, RoutedEventArgs e) =>
         Persist(sender, "Settings.AdditiveOptions");
 
+    private void CurrenciesGrid_OnLoaded(object sender, RoutedEventArgs e) =>
+        Restore(sender, "Settings.Currencies");
+
+    private void CurrenciesGrid_OnUnloaded(object sender, RoutedEventArgs e) =>
+        Persist(sender, "Settings.Currencies");
+
     private static void Restore(object sender, string key)
     {
         if (sender is DataGrid grid)

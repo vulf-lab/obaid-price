@@ -6,6 +6,7 @@ namespace CostWise.App.Services;
 
 public sealed record ProductionExportColumn(
     string CategoryName,
+    string FeedTypeName,
     string SizeName,
     string Code);
 
@@ -57,6 +58,7 @@ public sealed class ProductionExportService
                 .Where(f => memberIds.Contains(f.Id))
                 .Include(f => f.Category)
                 .Include(f => f.Size)
+                .Include(f => f.FeedType)
                 .Include(f => f.Ingredients).ThenInclude(i => i.RawIngredient)
                 .ToListAsync(ct);
 
@@ -67,7 +69,7 @@ public sealed class ProductionExportService
                 .ToList();
 
             var columns = ordered
-                .Select(f => new ProductionExportColumn(f.Category.Name, f.Size.Name, f.Code))
+                .Select(f => new ProductionExportColumn(f.Category.Name, f.FeedType.Name, f.Size.Name, f.Code))
                 .ToList();
 
             var ingredients = ordered

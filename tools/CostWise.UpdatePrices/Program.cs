@@ -1,3 +1,4 @@
+using CostWise.Infrastructure;
 using CostWise.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,12 +12,20 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
-        var apply = args.Any(a => string.Equals(a, "--apply", StringComparison.OrdinalIgnoreCase));
+        if (args.Any(a => a is "-h" or "--help" or "/?"))
+        {
+            Console.WriteLine("Usage: CostWise.UpdatePrices [--apply] --db <path> | --force-local");
+            Console.WriteLine(ToolDatabaseArgs.HelpText);
+            return 0;
+        }
 
-        var dbPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CostWise",
-            "costwise.db");
+        if (!ToolDatabaseArgs.TryResolve(args, out var dbPath, out var dbError))
+        {
+            Console.Error.WriteLine(dbError);
+            return dbError.Contains("Refusing", StringComparison.Ordinal) ? 2 : 0;
+        }
+
+        var apply = args.Any(a => string.Equals(a, "--apply", StringComparison.OrdinalIgnoreCase));
 
         Console.WriteLine(apply ? "Mode: APPLY" : "Mode: DRY-RUN");
         Console.WriteLine($"Database: {dbPath}");
@@ -75,8 +84,25 @@ internal static class Program
             var priceMt = Math.Round(priceKg.Value * 1000m, 2);
             Console.WriteLine($"  UPDATE     {entity.Name}: {entity.PricePerMt:N2} → {priceMt:N2} KES/MT  (from {priceKg} KES/kg)");
             matchedNames.Add(entity.Name);
-            if (apply)
+            if (apply && entity.PricePerMt != priceMt)
+            {
+                var rate = ReadExchangeRateKesPerUsd();
+                var usd = rate > 0m ? Math.Round(priceMt / rate, 2) : 0m;
                 entity.PricePerMt = priceMt;
+                db.RawIngredientPriceHistories.Add(new CostWise.Core.Entities.RawIngredientPriceHistory
+                {
+                    RawIngredientId = entity.Id,
+                    PricePerMt = priceMt,
+                    ExchangeRateKesPerUsd = rate,
+                    PricePerMtUsd = usd,
+                    ChangedAtUtc = DateTime.UtcNow
+                });
+            }
+            else if (apply)
+            {
+                entity.PricePerMt = priceMt;
+            }
+
             updated++;
         }
 
@@ -113,6 +139,28 @@ internal static class Program
             Console.WriteLine("\nApplied.");
 
         return 0;
+    }
+
+    private static decimal ReadExchangeRateKesPerUsd()
+    {
+        try
+        {
+            var path = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "CostWise",
+                "app-preferences.json");
+            if (!File.Exists(path)) return 130m;
+            using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(path));
+            if (doc.RootElement.TryGetProperty("ExchangeRateKesPerUsd", out var prop) &&
+                prop.TryGetDecimal(out var rate) && rate > 0m)
+                return rate;
+        }
+        catch
+        {
+            // ignore
+        }
+
+        return 130m;
     }
 
     /// <summary>Sheet prices in KES/kg. null = n/a.</summary>

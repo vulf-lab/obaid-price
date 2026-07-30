@@ -8,4 +8,5 @@ public class RawIngredient
     public bool IsAvailable { get; set; } = true;
 
     public ICollection<FormulationIngredient> FormulationIngredients { get; set; } = new List<FormulationIngredient>();
+    public ICollection<RawIngredientPriceHistory> PriceHistory { get; set; } = new List<RawIngredientPriceHistory>();
 }

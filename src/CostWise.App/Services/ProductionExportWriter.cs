@@ -175,9 +175,10 @@ public static class ProductionExportWriter
         const int titleRow = 1;
         const int groupHeaderRow = 2;
         const int categoryRow = 3;
-        const int sizeRow = 4;
-        const int codeRow = 5;
-        const int dataStartRow = 6;
+        const int feedTypeRow = 4;
+        const int sizeRow = 5;
+        const int codeRow = 6;
+        const int dataStartRow = 7;
 
         ws.Range(titleRow, 1, titleRow, lastCol).Merge();
         ws.Cell(titleRow, 1).Value = matrix.Title;
@@ -202,6 +203,7 @@ public static class ProductionExportWriter
             var col = flat[c].Column;
             var excelCol = c + 2;
             ws.Cell(categoryRow, excelCol).Value = col.CategoryName;
+            ws.Cell(feedTypeRow, excelCol).Value = col.FeedTypeName;
             ws.Cell(sizeRow, excelCol).Value = col.SizeName;
             ws.Cell(codeRow, excelCol).Value = col.Code;
             ws.Column(excelCol).Width = 11.5;
@@ -334,13 +336,13 @@ public static class ProductionExportWriter
 
             table.Header(header =>
             {
-                // Ingredient spans the 4 header rows.
-                header.Cell().RowSpan(4u).Element(c =>
+                // Ingredient spans the 5 header rows.
+                header.Cell().RowSpan(5u).Element(c =>
                     SlateCorner(c).AlignCenter().AlignMiddle().Text("Ingredient").SemiBold().FontColor(Colors.White).FontSize(8));
 
                 if (flat.Count == 0)
                 {
-                    header.Cell().RowSpan(4u).Element(MetaHeader).AlignCenter().Text("—");
+                    header.Cell().RowSpan(5u).Element(MetaHeader).AlignCenter().Text("—");
                     return;
                 }
 
@@ -353,6 +355,9 @@ public static class ProductionExportWriter
 
                 foreach (var flatCol in flat)
                     header.Cell().Element(MetaHeader).AlignCenter().Text(flatCol.Column.CategoryName).SemiBold().FontSize(6.5f);
+
+                foreach (var flatCol in flat)
+                    header.Cell().Element(MetaHeader).AlignCenter().Text(flatCol.Column.FeedTypeName).FontSize(6.5f);
 
                 foreach (var flatCol in flat)
                     header.Cell().Element(MetaHeader).AlignCenter().Text(flatCol.Column.SizeName).FontSize(6.5f);

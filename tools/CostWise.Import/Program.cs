@@ -2,6 +2,7 @@
 using System.Text.RegularExpressions;
 using ClosedXML.Excel;
 using CostWise.Core.Entities;
+using CostWise.Infrastructure;
 using CostWise.Infrastructure.Data;
 using CostWise.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -13,19 +14,23 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
-        var excelPath = args.ElementAtOrDefault(0)
-            ?? @"c:\Users\oureh\OneDrive\Documents\Copy of CostwiseF.xlsx";
-
-        if (!File.Exists(excelPath))
+        if (!ToolDatabaseArgs.TryResolve(args, out var dbPath, out var dbError))
         {
-            Console.Error.WriteLine($"File not found: {excelPath}");
+            Console.Error.WriteLine(dbError);
+            return dbError.Contains("Refusing", StringComparison.Ordinal) ? 2 : 0;
+        }
+
+        var excelPath = PickExcelPath(args, dbPath);
+
+        if (excelPath is null || !File.Exists(excelPath))
+        {
+            Console.Error.WriteLine(excelPath is null
+                ? "Usage: CostWise.Import <excel.xlsx> --db <path> | --force-local"
+                : $"File not found: {excelPath}");
+            Console.Error.WriteLine(ToolDatabaseArgs.HelpText);
             return 1;
         }
 
-        var dbPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "CostWise",
-            "costwise.db");
         Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
 
         var options = new DbContextOptionsBuilder<CostWiseDbContext>()
@@ -44,6 +49,34 @@ internal static class Program
         var imported = await ImportAsync(db, rows, batchId);
         Console.WriteLine($"Imported/updated {imported} formulations (batch {batchId}) into {dbPath}");
         return 0;
+    }
+
+    private static string? PickExcelPath(string[] args, string dbPath)
+    {
+        for (var i = 0; i < args.Length; i++)
+        {
+            var a = args[i];
+            if (a.StartsWith('-'))
+            {
+                if (string.Equals(a, "--db", StringComparison.OrdinalIgnoreCase))
+                    i++;
+                continue;
+            }
+
+            try
+            {
+                if (string.Equals(Path.GetFullPath(a), dbPath, StringComparison.OrdinalIgnoreCase))
+                    continue;
+            }
+            catch
+            {
+                // ignore invalid path tokens
+            }
+
+            return a;
+        }
+
+        return null;
     }
 
     private static List<ExcelIngredientRow> ReadRows(string path)
