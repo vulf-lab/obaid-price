@@ -423,6 +423,39 @@
                                 </StackPanel>
                             </Border>
 
+                            <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,16">
+                                <StackPanel>
+                                    <TextBlock Text="Updates" Style="{StaticResource SettingsSectionTitleStyle}"/>
+                                    <TextBlock Text="{Binding AppVersionText}"
+                                               FontWeight="SemiBold"
+                                               Margin="0,8,0,4"/>
+                                    <TextBlock Text="Checks GitHub Releases for OBAID Pricing. User data under LocalAppData\CostWise is preserved across updates."
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               TextWrapping="Wrap"
+                                               Margin="0,0,0,12"/>
+                                    <TextBlock Text="Update policy"
+                                               FontWeight="SemiBold"
+                                               Margin="0,0,0,4"/>
+                                    <ComboBox Width="360"
+                                              HorizontalAlignment="Left"
+                                              ItemsSource="{Binding UpdatePolicyOptions}"
+                                              SelectedItem="{Binding SelectedUpdatePolicy}"
+                                              DisplayMemberPath="Label"
+                                              Margin="0,0,0,12"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="Save update settings"
+                                                Style="{StaticResource PrimaryButtonStyle}"
+                                                Margin="0,0,8,0"
+                                                HorizontalAlignment="Left"
+                                                Command="{Binding SaveUpdateSettingsCommand}"/>
+                                        <Button Content="Check for updates now"
+                                                Style="{StaticResource SecondaryButtonStyle}"
+                                                HorizontalAlignment="Left"
+                                                Command="{Binding CheckForUpdatesNowCommand}"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
                             <Border Style="{StaticResource CardBorderStyle}" Margin="0,0,0,8">
                                 <StackPanel>
                                     <TextBlock Text="About" Style="{StaticResource SettingsSectionTitleStyle}"/>

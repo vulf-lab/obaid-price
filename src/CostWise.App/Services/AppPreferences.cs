@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using CostWise.App.Services.Update;
 
 namespace CostWise.App.Services;
 
@@ -14,6 +15,9 @@ public sealed class AppPreferences : INotifyPropertyChanged
     private int _usdDecimalPlaces = 2;
     private decimal _exchangeRateKesPerUsd = 130m;
     private string[] _navOrder = [];
+    private UpdatePolicy _updatePolicy = UpdatePolicy.Prompt;
+    private DateTime? _lastUpdateCheckUtc;
+    private string? _skippedUpdateVersion;
 
     public static AppPreferences Current { get; private set; } = null!;
 
@@ -83,6 +87,40 @@ public sealed class AppPreferences : INotifyPropertyChanged
         }
     }
 
+    public UpdatePolicy UpdatePolicy
+    {
+        get => _updatePolicy;
+        set
+        {
+            if (_updatePolicy == value) return;
+            _updatePolicy = value;
+            OnPropertyChanged();
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    public DateTime? LastUpdateCheckUtc
+    {
+        get => _lastUpdateCheckUtc;
+        set
+        {
+            if (_lastUpdateCheckUtc == value) return;
+            _lastUpdateCheckUtc = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string? SkippedUpdateVersion
+    {
+        get => _skippedUpdateVersion;
+        set
+        {
+            if (_skippedUpdateVersion == value) return;
+            _skippedUpdateVersion = value;
+            OnPropertyChanged();
+        }
+    }
+
     public string MoneyFormat => $"N{CostDecimalPlaces}";
     public string KesPriceFormat => $"N{KesDecimalPlaces}";
     public string UsdPriceFormat => $"N{UsdDecimalPlaces}";
@@ -128,7 +166,10 @@ public sealed class AppPreferences : INotifyPropertyChanged
             KesDecimalPlaces = KesDecimalPlaces,
             UsdDecimalPlaces = UsdDecimalPlaces,
             ExchangeRateKesPerUsd = ExchangeRateKesPerUsd,
-            NavOrder = NavOrder
+            NavOrder = NavOrder,
+            UpdatePolicy = UpdatePolicy.ToString(),
+            LastUpdateCheckUtc = LastUpdateCheckUtc,
+            SkippedUpdateVersion = SkippedUpdateVersion
         };
         File.WriteAllText(path, JsonSerializer.Serialize(dto, JsonOptions));
     }
@@ -139,10 +180,10 @@ public sealed class AppPreferences : INotifyPropertyChanged
         try
         {
             if (!File.Exists(path)) return;
-            var dto = JsonSerializer.Deserialize<PrefsDto>(File.ReadAllText(path));
+            var json = File.ReadAllText(path);
+            var dto = JsonSerializer.Deserialize<PrefsDto>(json);
             if (dto is null) return;
             _costDecimalPlaces = Math.Clamp(dto.CostDecimalPlaces, 0, 4);
-            var json = File.ReadAllText(path);
             _kesDecimalPlaces = json.Contains("KesDecimalPlaces", StringComparison.Ordinal)
                 ? Math.Clamp(dto.KesDecimalPlaces, 0, 4)
                 : 2;
@@ -151,6 +192,11 @@ public sealed class AppPreferences : INotifyPropertyChanged
                 : 2;
             _exchangeRateKesPerUsd = dto.ExchangeRateKesPerUsd > 0m ? dto.ExchangeRateKesPerUsd : 130m;
             _navOrder = dto.NavOrder ?? [];
+            if (!string.IsNullOrWhiteSpace(dto.UpdatePolicy)
+                && Enum.TryParse<UpdatePolicy>(dto.UpdatePolicy, ignoreCase: true, out var policy))
+                _updatePolicy = policy;
+            _lastUpdateCheckUtc = dto.LastUpdateCheckUtc;
+            _skippedUpdateVersion = dto.SkippedUpdateVersion;
         }
         catch
         {
@@ -174,5 +220,8 @@ public sealed class AppPreferences : INotifyPropertyChanged
         public int UsdDecimalPlaces { get; set; } = 2;
         public decimal ExchangeRateKesPerUsd { get; set; } = 130m;
         public string[]? NavOrder { get; set; }
+        public string? UpdatePolicy { get; set; }
+        public DateTime? LastUpdateCheckUtc { get; set; }
+        public string? SkippedUpdateVersion { get; set; }
     }
 }

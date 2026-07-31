@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Threading;
 using CostWise.App.Services;
+using CostWise.App.Services.Update;
 using CostWise.App.ViewModels;
 using CostWise.App.Views;
 using CostWise.Infrastructure;
@@ -73,6 +74,7 @@ public partial class App : Application
                     services.AddSingleton<AuthSession>();
                     services.AddSingleton<INavigationService, NavigationService>();
                     services.AddSingleton<CompareSelectionService>();
+                    services.AddSingleton<UpdateService>();
                     services.AddSingleton(locator);
                     services.AddTransient<ProductionExportService>();
                     services.AddTransient<MainViewModel>();
@@ -95,7 +97,11 @@ public partial class App : Application
 
             // QuestPDF license is set lazily on PDF export only — touching Settings at
             // startup crashes if native Skia assets fail to load.
-            await _host.Services.InitializeDatabaseAsync();
+            if (!await TryInitializeDatabaseAsync())
+            {
+                Shutdown(1);
+                return;
+            }
 
             _session = _host.Services.GetRequiredService<AuthSession>();
             _session.SignedOut += OnSignedOut;
@@ -107,17 +113,102 @@ public partial class App : Application
             }
 
             ShowMainWindow();
+            ScheduleUpdateCheck();
         }
         catch (Exception ex)
         {
             MessageBox.Show(
                 $"Startup failed:\n{AppLog.UserFacing(ex)}",
-                "CostWise",
+                "OBAID Pricing",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             AppLog.Error("Startup failed", ex);
             Shutdown(1);
         }
+    }
+
+    private async Task<bool> TryInitializeDatabaseAsync()
+    {
+        try
+        {
+            await _host!.Services.InitializeDatabaseAsync();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("Database migration/startup failed", ex);
+            var backup = DatabaseBackupService.FindLatestBackup();
+            if (backup is not null)
+            {
+                var restore = MessageBox.Show(
+                    "The database could not be upgraded after an application update.\n\n" +
+                    $"Error: {ex.Message}\n\n" +
+                    "Restore the latest pre-update database backup and exit?\n" +
+                    "(Then reinstall the previous OBAID Pricing release if needed.)\n\n" +
+                    $"Backup:\n{backup}",
+                    "Database upgrade failed",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (restore == MessageBoxResult.Yes)
+                {
+                    try
+                    {
+                        if (DatabaseBackupService.TryRestoreLatestBackup())
+                        {
+                            AppLog.Info($"Restored database from backup {backup}");
+                            MessageBox.Show(
+                                "Database restored from backup. The application will exit.\n" +
+                                "Start OBAID Pricing again, or install the previous release if problems continue.",
+                                "OBAID Pricing",
+                                MessageBoxButton.OK,
+                                MessageBoxImage.Information);
+                            return false;
+                        }
+                    }
+                    catch (Exception restoreEx)
+                    {
+                        AppLog.Error("Database restore failed", restoreEx);
+                        MessageBox.Show(
+                            $"Restore failed:\n{AppLog.UserFacing(restoreEx)}",
+                            "OBAID Pricing",
+                            MessageBoxButton.OK,
+                            MessageBoxImage.Error);
+                    }
+                }
+            }
+            else
+            {
+                MessageBox.Show(
+                    $"Database startup failed:\n{AppLog.UserFacing(ex)}",
+                    "OBAID Pricing",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+            }
+
+            return false;
+        }
+    }
+
+    private void ScheduleUpdateCheck()
+    {
+        var updates = _host!.Services.GetRequiredService<UpdateService>();
+        var prefs = _host.Services.GetRequiredService<AppPreferences>();
+
+        Dispatcher.BeginInvoke(async () =>
+        {
+            try
+            {
+                var owner = new WpfWindowOwner(MainWindow);
+                if (prefs.UpdatePolicy == UpdatePolicy.SilentDownloadApplyOnRestart)
+                    await updates.TryApplyPendingSilentAsync(owner);
+                await updates.RunStartupCheckAsync(owner);
+            }
+            catch (Exception ex)
+            {
+                AppLog.Error("Background update check failed", ex);
+            }
+        }, DispatcherPriority.Background);
     }
 
     private bool AuthenticateInteractive()
@@ -177,6 +268,7 @@ public partial class App : Application
                 }
 
                 ShowMainWindow();
+                ScheduleUpdateCheck();
             }
             finally
             {

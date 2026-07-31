@@ -6,6 +6,7 @@ using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CostWise.App.Services;
+using CostWise.App.Services.Update;
 using CostWise.Core.Entities;
 using CostWise.Core.Enums;
 using CostWise.Infrastructure.Data;
@@ -61,6 +62,7 @@ public partial class SettingsViewModel : ObservableObject
 {
     private readonly IDbContextFactory<CostWiseDbContext> _dbFactory;
     private readonly AppPreferences _preferences;
+    private readonly UpdateService _updateService;
 
     public ObservableCollection<NamedItemRow> FeedTypes { get; } = new();
     public ObservableCollection<NamedItemRow> SpeciesItems { get; } = new();
@@ -72,6 +74,12 @@ public partial class SettingsViewModel : ObservableObject
     public ObservableCollection<PricingCostOptionRow> AdditiveOptions { get; } = new();
     public ObservableCollection<CurrencyRow> Currencies { get; } = new();
     public int[] DecimalPlaceOptions { get; } = [0, 1, 2, 3, 4];
+    public IReadOnlyList<UpdatePolicyOption> UpdatePolicyOptions { get; } =
+    [
+        new(UpdatePolicy.Prompt, "Ask before downloading (recommended)"),
+        new(UpdatePolicy.SilentDownloadApplyOnRestart, "Download quietly; apply on restart"),
+        new(UpdatePolicy.Off, "Do not check for updates")
+    ];
     public SpecParametersViewModel Nutrients { get; }
 
     [ObservableProperty] private string _newFeedTypeName = string.Empty;
@@ -104,13 +112,23 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private ImageSource? _victoryLeftLogoImage;
     [ObservableProperty] private ImageSource? _victoryRightLogoImage;
     [ObservableProperty] private ImageSource? _commercialLogoImage;
+    [ObservableProperty] private UpdatePolicyOption? _selectedUpdatePolicy;
+    [ObservableProperty] private string _appVersionText = string.Empty;
+    [ObservableProperty] private bool _isCheckingUpdates;
 
-    public SettingsViewModel(IDbContextFactory<CostWiseDbContext> dbFactory, AppPreferences preferences)
+    public SettingsViewModel(
+        IDbContextFactory<CostWiseDbContext> dbFactory,
+        AppPreferences preferences,
+        UpdateService updateService)
     {
         _dbFactory = dbFactory;
         _preferences = preferences;
+        _updateService = updateService;
         Nutrients = new SpecParametersViewModel(dbFactory);
         CostDecimalPlaces = preferences.CostDecimalPlaces;
+        AppVersionText = $"Version {UpdateService.CurrentVersion}";
+        SelectedUpdatePolicy = UpdatePolicyOptions.FirstOrDefault(o => o.Policy == preferences.UpdatePolicy)
+                               ?? UpdatePolicyOptions[0];
         RefreshBrandingPaths();
         _ = LoadAsync();
     }
@@ -165,6 +183,39 @@ public partial class SettingsViewModel : ObservableObject
         _preferences.CostDecimalPlaces = CostDecimalPlaces;
         _preferences.Save();
         StatusMessage = $"Display settings saved ({CostDecimalPlaces} decimal place(s) for costs).";
+    }
+
+    [RelayCommand]
+    private void SaveUpdateSettings()
+    {
+        if (SelectedUpdatePolicy is null) return;
+        _preferences.UpdatePolicy = SelectedUpdatePolicy.Policy;
+        if (SelectedUpdatePolicy.Policy != UpdatePolicy.Off)
+            _preferences.SkippedUpdateVersion = null;
+        _preferences.Save();
+        StatusMessage = "Update settings saved.";
+    }
+
+    [RelayCommand]
+    private async Task CheckForUpdatesNowAsync()
+    {
+        if (IsCheckingUpdates) return;
+        IsCheckingUpdates = true;
+        try
+        {
+            var owner = new WpfWindowOwner(Application.Current?.MainWindow);
+            await _updateService.CheckAndHandleAsync(owner, interactivePrompt: true, force: true);
+            StatusMessage = "Update check finished.";
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("Manual update check failed", ex);
+            StatusMessage = $"Update check failed: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingUpdates = false;
+        }
     }
 
     [RelayCommand]
@@ -881,3 +932,5 @@ public partial class SettingsViewModel : ObservableObject
     private static bool ConfirmDelete(string name) =>
         MessageBox.Show($"Remove '{name}'?", "Confirm", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes;
 }
+
+public sealed record UpdatePolicyOption(UpdatePolicy Policy, string Label);
