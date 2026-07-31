@@ -378,6 +378,9 @@ public partial class FormulationsViewModel : ObservableObject
     {
         _filterController.ResetAll();
         ColumnFilterStateStore.Save(FilterStateKey, ColumnFilterState.Empty);
+        _compareSelection.ClearFormulations();
+        SyncCompareFlags();
+        StatusMessage = "Filters and compare selection cleared.";
     }
 
     [RelayCommand]

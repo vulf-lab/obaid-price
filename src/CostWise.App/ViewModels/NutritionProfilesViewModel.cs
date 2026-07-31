@@ -330,6 +330,9 @@ public partial class NutritionProfilesViewModel : ObservableObject
     {
         _filterController.ResetAll();
         ColumnFilterStateStore.Save(FilterStateKey, ColumnFilterState.Empty);
+        _compareSelection.ClearProfiles();
+        SyncCompareFlags();
+        StatusMessage = "Filters and compare selection cleared.";
     }
 
     [RelayCommand]

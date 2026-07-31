@@ -55,7 +55,7 @@
                 </Button>
                 <Button Style="{StaticResource ToolbarIconButtonStyle}" Margin="6,0,0,0"
                         Command="{Binding ResetAllFiltersCommand}"
-                        ToolTip="Clear all filters">
+                        ToolTip="Reset filters and compare selection">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock Text="&#xE71C;" Style="{StaticResource ToolbarGlyphStyle}"/>
                         <TextBlock Text="Reset" Style="{StaticResource ToolbarLabelStyle}"/>
