@@ -15,7 +15,7 @@ $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $root
 
-$version = "1.0.3"
+$version = "1.0.4"
 $outDir = Join-Path $root "artifacts\velopack"
 $results = [System.Collections.Generic.List[object]]::new()
 

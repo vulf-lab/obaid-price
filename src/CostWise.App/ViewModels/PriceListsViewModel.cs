@@ -1045,6 +1045,8 @@ public partial class PriceListsViewModel : ObservableObject
                 FormulationId = r.FormulationId,
                 BookRole = VictorySellPriceCompare.RoleA,
                 FormulationCode = r.Code,
+                FeedTypeName = r.FeedTypeName,
+                SizeName = r.SizeName,
                 SellMt = r.SellMt,
                 SellBag = r.SellBag,
                 CurrencyCode = r.CurrencyCode
@@ -1059,6 +1061,8 @@ public partial class PriceListsViewModel : ObservableObject
                 FormulationId = r.FormulationId,
                 BookRole = VictorySellPriceCompare.RoleB,
                 FormulationCode = r.Code,
+                FeedTypeName = r.FeedTypeName,
+                SizeName = r.SizeName,
                 SellMt = r.SellMt,
                 SellBag = r.SellBag,
                 CurrencyCode = r.CurrencyCode

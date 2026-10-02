@@ -21,7 +21,7 @@ $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $root
 
-$version = "1.0.3"
+$version = "1.0.4"
 $setup = Join-Path $root "artifacts\installer\ObaidPricing-Setup-$version.exe"
 $installDir = Join-Path $env:LOCALAPPDATA "ObaidPricing-ReleaseValidate\App"
 $costWiseData = Join-Path $env:LOCALAPPDATA "CostWise"

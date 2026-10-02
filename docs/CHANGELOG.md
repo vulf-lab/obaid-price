@@ -5,6 +5,12 @@ All notable changes to OBAID Pricing are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.4] - 2026-10-02
+
+### Fixed
+
+- Last Price follows feed type and size, so a new formula code for the same product still shows last month's price.
+
 ## [1.0.3] - 2026-10-02
 
 ### Added

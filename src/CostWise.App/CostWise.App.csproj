@@ -28,10 +28,10 @@
     <Company>OBAID</Company>
     <Copyright>Copyright © 2026 OBAID</Copyright>
     <Description>Feed formulation and costing</Description>
-    <Version>1.0.3</Version>
-    <AssemblyVersion>1.0.3.0</AssemblyVersion>
-    <FileVersion>1.0.3.0</FileVersion>
-    <InformationalVersion>1.0.3</InformationalVersion>
+    <Version>1.0.4</Version>
+    <AssemblyVersion>1.0.4.0</AssemblyVersion>
+    <FileVersion>1.0.4.0</FileVersion>
+    <InformationalVersion>1.0.4</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <ApplicationIcon>Assets\obaid-pricing-logo.ico</ApplicationIcon>
     <StartupObject>CostWise.App.Program</StartupObject>

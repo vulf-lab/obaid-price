@@ -5,7 +5,8 @@ namespace CostWise.App.Services;
 /// <summary>
 /// Fills Last Price / Change % from a saved Victory snapshot.
 /// Prefers the current price-book id, then the book side recorded on the snapshot.
-/// Within that set, matches formulation id, then formula code.
+/// Within that set, matches feed type and size. Formula code is used only when
+/// the snapshot line has no product names.
 /// </summary>
 public static class VictorySellPriceCompare
 {
@@ -29,21 +30,9 @@ public static class VictorySellPriceCompare
                 .ToList();
         }
 
-        var byId = new Dictionary<int, VictoryReportSnapshotLine>();
-        var byCode = new Dictionary<string, VictoryReportSnapshotLine>(StringComparer.OrdinalIgnoreCase);
-        foreach (var line in forBook)
-        {
-            if (line.FormulationId is int id && !byId.ContainsKey(id))
-                byId[id] = line;
-            if (!string.IsNullOrWhiteSpace(line.FormulationCode) && !byCode.ContainsKey(line.FormulationCode))
-                byCode[line.FormulationCode] = line;
-        }
-
         return rows.Select(r =>
         {
-            if (!byId.TryGetValue(r.FormulationId, out var line))
-                byCode.TryGetValue(r.Code, out line);
-
+            var line = FindLine(forBook, r);
             var last = line?.SellMt;
             decimal? change = last is > 0m && r.SellMt is decimal sell
                 ? Math.Round((sell - last.Value) / last.Value * 100m, 1)
@@ -54,4 +43,30 @@ public static class VictorySellPriceCompare
 
     public static bool AnyLastPrice(IReadOnlyList<PriceListBookRow> rowsA, IReadOnlyList<PriceListBookRow> rowsB) =>
         rowsA.Any(r => r.LastSellMt is not null) || rowsB.Any(r => r.LastSellMt is not null);
+
+    private static VictoryReportSnapshotLine? FindLine(
+        IReadOnlyList<VictoryReportSnapshotLine> lines,
+        PriceListBookRow row)
+    {
+        var product = lines.Where(l => HasProduct(l)
+            && string.Equals(l.FeedTypeName, row.FeedTypeName, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(l.SizeName, row.SizeName, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        if (product.Count > 0)
+        {
+            return product.FirstOrDefault(l =>
+                       !string.IsNullOrWhiteSpace(l.FormulationCode)
+                       && string.Equals(l.FormulationCode, row.Code, StringComparison.OrdinalIgnoreCase))
+                   ?? product[0];
+        }
+
+        return lines.FirstOrDefault(l =>
+            !HasProduct(l)
+            && !string.IsNullOrWhiteSpace(l.FormulationCode)
+            && string.Equals(l.FormulationCode, row.Code, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool HasProduct(VictoryReportSnapshotLine line) =>
+        !string.IsNullOrWhiteSpace(line.FeedTypeName) && !string.IsNullOrWhiteSpace(line.SizeName);
 }

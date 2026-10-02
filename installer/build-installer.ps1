@@ -18,7 +18,7 @@ $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $root
 
-$version = "1.0.3"
+$version = "1.0.4"
 $publishDir = Join-Path $root "artifacts\release\$version"
 $iss = Join-Path $root "installer\ObaidPricing.iss"
 $outDir = Join-Path $root "artifacts\installer"

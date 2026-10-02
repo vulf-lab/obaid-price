@@ -313,6 +313,8 @@ public class CostWiseDbContext : DbContext
             e.Property(x => x.CurrencyCode).HasMaxLength(10).IsRequired();
             e.Property(x => x.BookRole).HasMaxLength(1).IsRequired();
             e.Property(x => x.FormulationCode).HasMaxLength(50).IsRequired();
+            e.Property(x => x.FeedTypeName).HasMaxLength(100).IsRequired();
+            e.Property(x => x.SizeName).HasMaxLength(50).IsRequired();
             e.HasOne(x => x.Snapshot)
                 .WithMany(x => x.Lines)
                 .HasForeignKey(x => x.SnapshotId)

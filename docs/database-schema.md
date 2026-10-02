@@ -40,7 +40,7 @@ On every app start ([`DependencyInjection.InitializeDatabaseAsync`](../src/CostW
 | `CommercialPriceLists` | Name, Currency, SellUnit, EffectiveDate | |
 | `CommercialPriceListBooks` | SortOrder | Join; one list per book |
 | `VictoryReportSnapshots` | Label, BookA/B, margins, BriefJson | Archived brief omits logos |
-| `VictoryReportSnapshotLines` | BookRole, FormulationCode, Sell Mt/Bag, CurrencyCode | Formula/book FKs SetNull |
+| `VictoryReportSnapshotLines` | BookRole, FormulationCode, FeedTypeName, SizeName, Sell Mt/Bag, CurrencyCode | Formula/book FKs SetNull; Last Price matches feed type + size |
 
 Defined in [`CostWiseDbContext`](../src/CostWise.Infrastructure/Data/CostWiseDbContext.cs).
 
@@ -74,6 +74,7 @@ Defined in [`CostWiseDbContext`](../src/CostWise.Infrastructure/Data/CostWiseDbC
 | `AddCommercialPriceLists` | Commercial lists |
 | `AddVictoryReportSnapshots` | Victory snapshots |
 | `AddVictorySnapshotFormulaCode` | Formula code, book side, archived brief |
+| `AddVictorySnapshotProduct` | Feed type and size on snapshot lines |
 
 Source: `src/CostWise.Infrastructure/Data/Migrations/`.
 

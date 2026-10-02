@@ -22,7 +22,7 @@ $ErrorActionPreference = "Stop"
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $root
 
-$version = "1.0.3"
+$version = "1.0.4"
 $packId = "ObaidPricing"
 $publishDir = Join-Path $root "artifacts\release\$version"
 $outDir = Join-Path $root "artifacts\velopack"
