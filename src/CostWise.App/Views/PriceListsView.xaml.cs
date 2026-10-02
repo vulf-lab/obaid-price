@@ -31,6 +31,15 @@ public partial class PriceListsView : UserControl
         e.Handled = true;
     }
 
+    private void SavedBriefPreviewScroller_OnPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (Keyboard.Modifiers != ModifierKeys.Control) return;
+        if (DataContext is not PriceListsViewModel vm) return;
+
+        vm.AdjustSavedBriefPreviewZoom(e.Delta > 0 ? 1 : -1);
+        e.Handled = true;
+    }
+
     private void VictoryColumnsButton_OnClick(object sender, RoutedEventArgs e) =>
         VictoryColumnsPopup.IsOpen = !VictoryColumnsPopup.IsOpen;
 

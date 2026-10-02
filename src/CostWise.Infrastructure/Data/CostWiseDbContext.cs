@@ -294,6 +294,7 @@ public class CostWiseDbContext : DbContext
             e.Property(x => x.Note).HasMaxLength(500);
             e.Property(x => x.BookAMarginPercent).HasPrecision(8, 2);
             e.Property(x => x.BookBMarginPercent).HasPrecision(8, 2);
+            e.Property(x => x.BriefJson);
             e.HasOne(x => x.BookA)
                 .WithMany()
                 .HasForeignKey(x => x.BookAId)
@@ -310,6 +311,8 @@ public class CostWiseDbContext : DbContext
             e.Property(x => x.SellMt).HasPrecision(18, 2);
             e.Property(x => x.SellBag).HasPrecision(18, 2);
             e.Property(x => x.CurrencyCode).HasMaxLength(10).IsRequired();
+            e.Property(x => x.BookRole).HasMaxLength(1).IsRequired();
+            e.Property(x => x.FormulationCode).HasMaxLength(50).IsRequired();
             e.HasOne(x => x.Snapshot)
                 .WithMany(x => x.Lines)
                 .HasForeignKey(x => x.SnapshotId)
@@ -317,11 +320,11 @@ public class CostWiseDbContext : DbContext
             e.HasOne(x => x.PriceBook)
                 .WithMany()
                 .HasForeignKey(x => x.PriceBookId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.SetNull);
             e.HasOne(x => x.Formulation)
                 .WithMany()
                 .HasForeignKey(x => x.FormulationId)
-                .OnDelete(DeleteBehavior.Cascade);
+                .OnDelete(DeleteBehavior.SetNull);
             e.HasIndex(x => new { x.SnapshotId, x.PriceBookId, x.FormulationId }).IsUnique();
         });
     }

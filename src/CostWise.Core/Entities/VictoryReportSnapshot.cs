@@ -10,6 +10,8 @@ public class VictoryReportSnapshot
     public decimal BookAMarginPercent { get; set; }
     public decimal BookBMarginPercent { get; set; }
     public string? Note { get; set; }
+    /// <summary>Archived brief without logo bytes. Null for snapshots saved before review support.</summary>
+    public string? BriefJson { get; set; }
 
     public PriceBook? BookA { get; set; }
     public PriceBook? BookB { get; set; }

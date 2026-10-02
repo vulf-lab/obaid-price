@@ -6,7 +6,7 @@
     <DockPanel>
         <TextBlock DockPanel.Dock="Bottom" Text="{Binding StatusMessage}"
                    Foreground="{StaticResource TextMutedBrush}" Margin="0,8,0,0"/>
-        <TabControl>
+        <TabControl SelectedIndex="{Binding SelectedPriceListTab}">
             <!-- Victory Group -->
             <TabItem Header="Victory Group">
                 <Grid Margin="12">
@@ -250,6 +250,121 @@
                                         Command="{Binding DownloadVictoryPdfCommand}"/>
                             </StackPanel>                        </StackPanel>
                     </ScrollViewer>
+                </Grid>
+            </TabItem>
+
+            <!-- Saved briefs -->
+            <TabItem Header="Saved briefs">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="2*"/>
+                        <ColumnDefinition Width="12"/>
+                        <ColumnDefinition Width="360"/>
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Style="{StaticResource CardBorderStyle}" Padding="8">
+                        <DockPanel>
+                            <DockPanel DockPanel.Dock="Top" Margin="0,0,0,8" LastChildFill="True">
+                                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Button Content="−" Width="28" Padding="0,2"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding ZoomSavedBriefPreviewOutCommand}"
+                                            ToolTip="Zoom out (Ctrl+Mouse wheel)"/>
+                                    <TextBlock Text="{Binding SavedBriefPreviewZoomLabel}"
+                                               Width="48" TextAlignment="Center" VerticalAlignment="Center"
+                                               Margin="6,0"/>
+                                    <Button Content="+" Width="28" Padding="0,2"
+                                            Style="{StaticResource SecondaryButtonStyle}"
+                                            Command="{Binding ZoomSavedBriefPreviewInCommand}"
+                                            ToolTip="Zoom in (Ctrl+Mouse wheel)"/>
+                                </StackPanel>
+                                <TextBlock Text="Saved brief" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            </DockPanel>
+                            <TextBlock DockPanel.Dock="Top"
+                                       Text="{Binding SavedBriefPreviewStatus}"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       Margin="0,0,0,8"
+                                       TextWrapping="Wrap"/>
+                            <Grid>
+                                <ScrollViewer x:Name="SavedBriefPreviewScroller"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Auto"
+                                              Visibility="{Binding SavedBriefShowsPreview, Converter={StaticResource BoolToVisibility}}"
+                                              PreviewMouseWheel="SavedBriefPreviewScroller_OnPreviewMouseWheel">
+                                    <ItemsControl ItemsSource="{Binding SavedBriefPreviewPages}">
+                                        <ItemsControl.LayoutTransform>
+                                            <ScaleTransform ScaleX="{Binding SavedBriefPreviewZoom}"
+                                                            ScaleY="{Binding SavedBriefPreviewZoom}"/>
+                                        </ItemsControl.LayoutTransform>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Margin="0,0,0,12" BorderBrush="{StaticResource BorderSoftBrush}" BorderThickness="1"
+                                                        Background="White" HorizontalAlignment="Center">
+                                                    <Image Source="{Binding}" Stretch="Uniform" Width="720"/>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                                <DataGrid ItemsSource="{Binding SavedBriefLines}"
+                                          AutoGenerateColumns="False"
+                                          IsReadOnly="True"
+                                          HeadersVisibility="Column"
+                                          CanUserAddRows="False"
+                                          Visibility="{Binding SavedBriefShowsLines, Converter={StaticResource BoolToVisibility}}">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Book" Binding="{Binding BookSide}" Width="60"/>
+                                        <DataGridTextColumn Header="Code" Binding="{Binding FormulationCode}" Width="140"/>
+                                        <DataGridTextColumn Header="Sell / MT" Binding="{Binding SellMtDisplay}" Width="120"/>
+                                        <DataGridTextColumn Header="Sell / bag" Binding="{Binding SellBagDisplay}" Width="120"/>
+                                        <DataGridTextColumn Header="Currency" Binding="{Binding CurrencyCode}" Width="80"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </DockPanel>
+                    </Border>
+
+                    <DockPanel Grid.Column="2">
+                        <TextBlock DockPanel.Dock="Top" Text="Saved briefs" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                        <TextBox DockPanel.Dock="Top"
+                                 Margin="0,0,0,8"
+                                 ToolTip="Search by date, label, or price book"
+                                 Text="{Binding SavedBriefFilter, UpdateSourceTrigger=PropertyChanged}"/>
+                        <StackPanel DockPanel.Dock="Bottom" Margin="0,12,0,0">
+                            <Button Content="Use for Last Price"
+                                    Style="{StaticResource PrimaryButtonStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    Command="{Binding UseSavedBriefForLastPriceCommand}"
+                                    ToolTip="Compare the live Victory brief to this snapshot"/>
+                            <Button Content="Download PDF"
+                                    Style="{StaticResource SecondaryButtonStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    Margin="0,8,0,0"
+                                    Command="{Binding DownloadSavedBriefPdfCommand}"/>
+                            <Button Content="Delete"
+                                    Style="{StaticResource DangerButtonStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    Margin="0,8,0,0"
+                                    Command="{Binding DeleteSavedBriefCommand}"/>
+                        </StackPanel>
+                        <ListBox ItemsSource="{Binding FilteredSavedBriefs}"
+                                 SelectedItem="{Binding SelectedSavedBrief}"
+                                 BorderThickness="0">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="0,4">
+                                        <TextBlock Text="{Binding WhenLabel}" FontWeight="SemiBold"/>
+                                        <TextBlock Text="{Binding BookSummary}"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   TextWrapping="Wrap"/>
+                                        <TextBlock Text="{Binding Note}"
+                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                   TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
                 </Grid>
             </TabItem>
 

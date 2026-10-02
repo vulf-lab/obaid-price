@@ -74,6 +74,32 @@ public sealed class CommercialPreviewRow
     public string SaleDisplay { get; init; } = "—";
 }
 
+public sealed class SavedBriefItem
+{
+    public int Id { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public string Label { get; set; } = string.Empty;
+    public string? Note { get; set; }
+    public string BookAName { get; set; } = string.Empty;
+    public string BookBName { get; set; } = string.Empty;
+    public bool HasBrief { get; set; }
+
+    public string WhenLabel =>
+        CreatedAtUtc.ToLocalTime().ToString("dd MMM yyyy HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+
+    public string BookSummary => $"{BookAName} · {BookBName}";
+    public string CompareLabel => $"{WhenLabel} — {Label}";
+}
+
+public sealed class SavedBriefLineRow
+{
+    public string BookSide { get; init; } = string.Empty;
+    public string FormulationCode { get; init; } = string.Empty;
+    public string SellMtDisplay { get; init; } = "—";
+    public string SellBagDisplay { get; init; } = "—";
+    public string CurrencyCode { get; init; } = string.Empty;
+}
+
 public partial class PriceListsViewModel : ObservableObject
 {
     private readonly IDbContextFactory<CostWiseDbContext> _dbFactory;
@@ -90,6 +116,10 @@ public partial class PriceListsViewModel : ObservableObject
     public ObservableCollection<Currency> Currencies { get; } = new();
     public ObservableCollection<CommercialPreviewRow> CommercialPreviewRows { get; } = new();
     public ObservableCollection<ImageSource> VictoryPreviewPages { get; } = new();
+    public ObservableCollection<SavedBriefItem> SavedBriefs { get; } = new();
+    public ObservableCollection<SavedBriefItem> FilteredSavedBriefs { get; } = new();
+    public ObservableCollection<SavedBriefLineRow> SavedBriefLines { get; } = new();
+    public ObservableCollection<ImageSource> SavedBriefPreviewPages { get; } = new();
     /// <summary>Full list of previous-date options (source for filtering).</summary>
     public ObservableCollection<VictoryPreviousDateOption> VictoryPreviousDateOptions { get; } = new();
     public ObservableCollection<VictoryPreviousDateOption> FilteredVictoryPreviousDateOptions { get; } = new();
@@ -129,7 +159,15 @@ public partial class PriceListsViewModel : ObservableObject
     [ObservableProperty] private decimal _roundBookBTo;
     [ObservableProperty] private decimal _roundDeltaPercentTo;
     [ObservableProperty] private double _victoryPreviewZoom = 1.0;
+    [ObservableProperty] private int _selectedPriceListTab;
+    [ObservableProperty] private SavedBriefItem? _selectedSavedBrief;
+    [ObservableProperty] private string _savedBriefFilter = string.Empty;
+    [ObservableProperty] private string _savedBriefPreviewStatus = string.Empty;
+    [ObservableProperty] private bool _savedBriefShowsPreview;
+    [ObservableProperty] private bool _savedBriefShowsLines;
+    [ObservableProperty] private double _savedBriefPreviewZoom = 1.0;
 
+    private CancellationTokenSource? _savedBriefCts;
     private bool _suppressCommercialColumnPersist;
 
     public PriceListsViewModel(IDbContextFactory<CostWiseDbContext> dbFactory)
@@ -196,6 +234,7 @@ public partial class PriceListsViewModel : ObservableObject
 
         await ReloadVictoryPreviousDateOptionsAsync(db);
         await ReloadVictorySellCompareOptionsAsync(db);
+        await ReloadSavedBriefsAsync(db);
         await ReloadCommercialListsAsync(db);
         UpdateSaleColumnHeader();
         _suppressVictoryPersist = false;
@@ -440,7 +479,12 @@ public partial class PriceListsViewModel : ObservableObject
                 VictoryPreviewPages.Clear();
                 foreach (var png in pngPages)
                     VictoryPreviewPages.Add(ToImageSource(png));
-                VictoryPreviewStatus = VictoryPreviewPages.Count > 0 ? string.Empty : "No preview pages.";
+                var unmatched = brief.ShowSellCompare
+                    && brief.BookARows.Count + brief.BookBRows.Count > 0
+                    && !VictorySellPriceCompare.AnyLastPrice(brief.BookARows, brief.BookBRows);
+                VictoryPreviewStatus = unmatched
+                    ? "Saved snapshot has no matching formulas for these price books."
+                    : VictoryPreviewPages.Count > 0 ? string.Empty : "No preview pages.";
             });
         }
         catch (OperationCanceledException)
@@ -923,8 +967,10 @@ public partial class PriceListsViewModel : ObservableObject
         var showCompare = compare is not null;
         if (compare is not null)
         {
-            rowsA = ApplySellCompare(rowsA, VictoryBookA.Id, compare);
-            rowsB = ApplySellCompare(rowsB, VictoryBookB.Id, compare);
+            rowsA = VictorySellPriceCompare.Apply(
+                rowsA, VictoryBookA.Id, compare.BookAId, VictorySellPriceCompare.RoleA, compare.Lines);
+            rowsB = VictorySellPriceCompare.Apply(
+                rowsB, VictoryBookB.Id, compare.BookBId, VictorySellPriceCompare.RoleB, compare.Lines);
         }
 
         return new VictoryGroupBrief(
@@ -971,26 +1017,6 @@ public partial class PriceListsViewModel : ObservableObject
             .FirstOrDefaultAsync(x => x.Id == id);
     }
 
-    private static IReadOnlyList<PriceListBookRow> ApplySellCompare(
-        IReadOnlyList<PriceListBookRow> rows,
-        int priceBookId,
-        VictoryReportSnapshot snapshot)
-    {
-        var byFormula = snapshot.Lines
-            .Where(l => l.PriceBookId == priceBookId)
-            .ToDictionary(l => l.FormulationId);
-
-        return rows.Select(r =>
-        {
-            byFormula.TryGetValue(r.FormulationId, out var line);
-            var last = line?.SellMt;
-            decimal? change = last is > 0m && r.SellMt is decimal sell
-                ? Math.Round((sell - last.Value) / last.Value * 100m, 1)
-                : null;
-            return r with { LastSellMt = last, SellChangePercent = change };
-        }).ToList();
-    }
-
     private async Task<VictoryReportSnapshot?> SaveVictorySnapshotAsync(
         CostWiseDbContext db,
         VictoryGroupBrief brief,
@@ -1007,7 +1033,8 @@ public partial class PriceListsViewModel : ObservableObject
             BookBId = VictoryBookB.Id,
             BookAMarginPercent = VictoryBookA.MarginPercent,
             BookBMarginPercent = VictoryBookB.MarginPercent,
-            Note = labelNote
+            Note = labelNote,
+            BriefJson = VictoryBriefArchive.Serialize(brief)
         };
 
         foreach (var r in brief.BookARows)
@@ -1016,6 +1043,8 @@ public partial class PriceListsViewModel : ObservableObject
             {
                 PriceBookId = VictoryBookA.Id,
                 FormulationId = r.FormulationId,
+                BookRole = VictorySellPriceCompare.RoleA,
+                FormulationCode = r.Code,
                 SellMt = r.SellMt,
                 SellBag = r.SellBag,
                 CurrencyCode = r.CurrencyCode
@@ -1028,6 +1057,8 @@ public partial class PriceListsViewModel : ObservableObject
             {
                 PriceBookId = VictoryBookB.Id,
                 FormulationId = r.FormulationId,
+                BookRole = VictorySellPriceCompare.RoleB,
+                FormulationCode = r.Code,
                 SellMt = r.SellMt,
                 SellBag = r.SellBag,
                 CurrencyCode = r.CurrencyCode
@@ -1105,6 +1136,7 @@ public partial class PriceListsViewModel : ObservableObject
             await using var db = await _dbFactory.CreateDbContextAsync();
             await SaveVictorySnapshotAsync(db, brief, "Download PDF");
             await ReloadVictorySellCompareOptionsAsync(db);
+            await ReloadSavedBriefsAsync(db);
 
             PersistVictoryPrefs();
             StatusMessage = $"Saved {dialog.FileName} (sell-price snapshot recorded).";
@@ -1132,6 +1164,7 @@ public partial class PriceListsViewModel : ObservableObject
             var snapBrief = brief with { BookARows = liveA, BookBRows = liveB, ShowSellCompare = false };
             await SaveVictorySnapshotAsync(db, snapBrief, "Manual snapshot");
             await ReloadVictorySellCompareOptionsAsync(db);
+            await ReloadSavedBriefsAsync(db);
             PersistVictoryPrefs();
             StatusMessage = "Victory sell-price snapshot saved.";
             ScheduleVictoryPreviewRefresh();
@@ -1185,6 +1218,288 @@ public partial class PriceListsViewModel : ObservableObject
         {
             StatusMessage = ex.Message;
             MessageBox.Show(ex.Message, "PDF preview failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    public string SavedBriefPreviewZoomLabel => $"{SavedBriefPreviewZoom * 100:0}%";
+
+    partial void OnSavedBriefPreviewZoomChanged(double value) =>
+        OnPropertyChanged(nameof(SavedBriefPreviewZoomLabel));
+
+    partial void OnSavedBriefFilterChanged(string value) => RefreshFilteredSavedBriefs();
+
+    partial void OnSelectedSavedBriefChanged(SavedBriefItem? value) => ScheduleSavedBriefPreview();
+
+    [RelayCommand]
+    private void ZoomSavedBriefPreviewIn() =>
+        SavedBriefPreviewZoom = Math.Min(3.0, Math.Round(SavedBriefPreviewZoom + 0.1, 2));
+
+    [RelayCommand]
+    private void ZoomSavedBriefPreviewOut() =>
+        SavedBriefPreviewZoom = Math.Max(0.5, Math.Round(SavedBriefPreviewZoom - 0.1, 2));
+
+    public void AdjustSavedBriefPreviewZoom(int deltaSteps)
+    {
+        if (deltaSteps == 0) return;
+        var next = SavedBriefPreviewZoom + deltaSteps * 0.1;
+        SavedBriefPreviewZoom = Math.Clamp(Math.Round(next, 2), 0.5, 3.0);
+    }
+
+    private async Task ReloadSavedBriefsAsync(CostWiseDbContext db)
+    {
+        var selectedId = SelectedSavedBrief?.Id;
+        var rows = await db.VictoryReportSnapshots
+            .AsNoTracking()
+            .OrderByDescending(x => x.CreatedAtUtc)
+            .Select(x => new SavedBriefItem
+            {
+                Id = x.Id,
+                CreatedAtUtc = x.CreatedAtUtc,
+                Label = x.Label,
+                Note = x.Note,
+                BookAName = x.BookA != null ? x.BookA.Name : "Price book A",
+                BookBName = x.BookB != null ? x.BookB.Name : "Price book B",
+                HasBrief = x.BriefJson != null && x.BriefJson != ""
+            })
+            .ToListAsync();
+
+        SavedBriefs.Clear();
+        foreach (var row in rows)
+            SavedBriefs.Add(row);
+
+        RefreshFilteredSavedBriefs();
+        SelectedSavedBrief = FilteredSavedBriefs.FirstOrDefault(x => x.Id == selectedId)
+                             ?? FilteredSavedBriefs.FirstOrDefault();
+    }
+
+    private void RefreshFilteredSavedBriefs()
+    {
+        var q = SavedBriefFilter.Trim();
+        var selectedId = SelectedSavedBrief?.Id;
+        FilteredSavedBriefs.Clear();
+        foreach (var item in SavedBriefs)
+        {
+            if (q.Length == 0
+                || item.WhenLabel.Contains(q, StringComparison.OrdinalIgnoreCase)
+                || item.Label.Contains(q, StringComparison.OrdinalIgnoreCase)
+                || item.BookSummary.Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (item.Note?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false))
+            {
+                FilteredSavedBriefs.Add(item);
+            }
+        }
+
+        if (selectedId is int id && FilteredSavedBriefs.All(x => x.Id != id))
+            SelectedSavedBrief = FilteredSavedBriefs.FirstOrDefault();
+        else if (selectedId is int keep)
+            SelectedSavedBrief = FilteredSavedBriefs.FirstOrDefault(x => x.Id == keep);
+    }
+
+    private void ScheduleSavedBriefPreview()
+    {
+        _savedBriefCts?.Cancel();
+        _savedBriefCts?.Dispose();
+        _savedBriefCts = new CancellationTokenSource();
+        var token = _savedBriefCts.Token;
+        _ = LoadSavedBriefPreviewAsync(token);
+    }
+
+    private async Task LoadSavedBriefPreviewAsync(CancellationToken token)
+    {
+        var item = SelectedSavedBrief;
+        if (item is null)
+        {
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                SavedBriefPreviewPages.Clear();
+                SavedBriefLines.Clear();
+                SavedBriefShowsPreview = false;
+                SavedBriefShowsLines = false;
+                SavedBriefPreviewStatus = "No saved briefs yet.";
+            });
+            return;
+        }
+
+        try
+        {
+            SavedBriefPreviewStatus = "Opening brief…";
+            await using var db = await _dbFactory.CreateDbContextAsync(token);
+            var snap = await db.VictoryReportSnapshots
+                .AsNoTracking()
+                .Include(x => x.Lines)
+                .FirstOrDefaultAsync(x => x.Id == item.Id, token);
+            if (token.IsCancellationRequested)
+                return;
+
+            VictoryGroupBrief? brief = snap is null
+                ? null
+                : VictoryBriefArchive.Deserialize(
+                    snap.BriefJson,
+                    BrandingLogoStore.GetBytes(BrandingLogoStore.VictoryLeft),
+                    BrandingLogoStore.GetBytes(BrandingLogoStore.VictoryRight));
+
+            IReadOnlyList<byte[]>? pages = null;
+            if (brief is not null)
+            {
+                pages = await Task.Run(
+                    () => VictoryGroupPriceListWriter.RenderPreviewImages(brief),
+                    token);
+            }
+
+            if (token.IsCancellationRequested)
+                return;
+
+            var lineRows = (snap?.Lines ?? [])
+                .OrderBy(l => l.BookRole)
+                .ThenBy(l => l.FormulationCode)
+                .Select(l => new SavedBriefLineRow
+                {
+                    BookSide = l.BookRole,
+                    FormulationCode = string.IsNullOrWhiteSpace(l.FormulationCode) ? "—" : l.FormulationCode,
+                    SellMtDisplay = PriceListNumberFormat.FormatMoney(l.SellMt, l.CurrencyCode),
+                    SellBagDisplay = PriceListNumberFormat.FormatMoney(l.SellBag, l.CurrencyCode),
+                    CurrencyCode = l.CurrencyCode
+                })
+                .ToList();
+
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                if (token.IsCancellationRequested)
+                    return;
+
+                SavedBriefPreviewPages.Clear();
+                if (pages is not null)
+                {
+                    foreach (var png in pages)
+                        SavedBriefPreviewPages.Add(ToImageSource(png));
+                }
+
+                SavedBriefLines.Clear();
+                foreach (var row in lineRows)
+                    SavedBriefLines.Add(row);
+
+                SavedBriefShowsPreview = SavedBriefPreviewPages.Count > 0;
+                SavedBriefShowsLines = !SavedBriefShowsPreview && SavedBriefLines.Count > 0;
+                SavedBriefPreviewStatus = snap is null
+                    ? "Snapshot was not found."
+                    : SavedBriefShowsPreview
+                        ? string.Empty
+                        : "The original brief image was not stored. Showing saved sell prices.";
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer selection
+        }
+        catch (Exception ex)
+        {
+            var message = ex.Message;
+            if (Application.Current?.Dispatcher is null)
+            {
+                SavedBriefPreviewStatus = message;
+                return;
+            }
+
+            await Application.Current.Dispatcher.InvokeAsync(() => SavedBriefPreviewStatus = message);
+        }
+    }
+
+    [RelayCommand]
+    private void UseSavedBriefForLastPrice()
+    {
+        if (SelectedSavedBrief is null)
+            return;
+
+        var item = SelectedSavedBrief;
+        var existing = VictorySellCompareOptions.FirstOrDefault(x => x.SnapshotId == item.Id);
+        if (existing is null)
+        {
+            existing = new VictorySellCompareOption(item.Id, isAuto: false, item.CompareLabel);
+            VictorySellCompareOptions.Insert(Math.Min(2, VictorySellCompareOptions.Count), existing);
+            RefreshFilteredVictorySellCompare();
+        }
+
+        SelectedVictorySellCompare = existing;
+        SelectedPriceListTab = 0;
+        StatusMessage = $"Comparing sell prices to {item.WhenLabel}.";
+    }
+
+    [RelayCommand]
+    private async Task DownloadSavedBriefPdfAsync()
+    {
+        if (SelectedSavedBrief is null)
+            return;
+
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var json = await db.VictoryReportSnapshots
+                .AsNoTracking()
+                .Where(x => x.Id == SelectedSavedBrief.Id)
+                .Select(x => x.BriefJson)
+                .FirstOrDefaultAsync();
+            var brief = VictoryBriefArchive.Deserialize(
+                json,
+                BrandingLogoStore.GetBytes(BrandingLogoStore.VictoryLeft),
+                BrandingLogoStore.GetBytes(BrandingLogoStore.VictoryRight));
+            if (brief is null)
+            {
+                StatusMessage = "The full brief was not stored for this snapshot.";
+                return;
+            }
+
+            var dialog = new SaveFileDialog
+            {
+                Filter = "PDF files (*.pdf)|*.pdf",
+                FileName = $"Victory-Group-Pricing-{SelectedSavedBrief.CreatedAtUtc.ToLocalTime():yyyyMMdd}.pdf"
+            };
+            if (dialog.ShowDialog() != true)
+                return;
+
+            VictoryGroupPriceListWriter.WritePdf(brief, dialog.FileName);
+            StatusMessage = $"Saved {dialog.FileName}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            MessageBox.Show(ex.Message, "PDF export failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteSavedBriefAsync()
+    {
+        if (SelectedSavedBrief is null)
+            return;
+
+        var item = SelectedSavedBrief;
+        var confirm = MessageBox.Show(
+            $"Delete the brief from {item.WhenLabel}?",
+            "Delete saved brief",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        try
+        {
+            await using var db = await _dbFactory.CreateDbContextAsync();
+            var entity = await db.VictoryReportSnapshots.FirstOrDefaultAsync(x => x.Id == item.Id);
+            if (entity is not null)
+            {
+                db.VictoryReportSnapshots.Remove(entity);
+                await db.SaveChangesAsync();
+            }
+
+            await ReloadSavedBriefsAsync(db);
+            await ReloadVictorySellCompareOptionsAsync(db);
+            StatusMessage = "Saved brief deleted.";
+            ScheduleVictoryPreviewRefresh();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = ex.Message;
+            MessageBox.Show(ex.Message, "Delete failed", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

@@ -39,8 +39,8 @@ On every app start ([`DependencyInjection.InitializeDatabaseAsync`](../src/CostW
 | `ProductionGroupFormulations` | SortOrder | Join |
 | `CommercialPriceLists` | Name, Currency, SellUnit, EffectiveDate | |
 | `CommercialPriceListBooks` | SortOrder | Join; one list per book |
-| `VictoryReportSnapshots` | Label, BookA/B, margins | |
-| `VictoryReportSnapshotLines` | Sell Mt/Bag, CurrencyCode | |
+| `VictoryReportSnapshots` | Label, BookA/B, margins, BriefJson | Archived brief omits logos |
+| `VictoryReportSnapshotLines` | BookRole, FormulationCode, Sell Mt/Bag, CurrencyCode | Formula/book FKs SetNull |
 
 Defined in [`CostWiseDbContext`](../src/CostWise.Infrastructure/Data/CostWiseDbContext.cs).
 
@@ -73,6 +73,7 @@ Defined in [`CostWiseDbContext`](../src/CostWise.Infrastructure/Data/CostWiseDbC
 | `AddCurrenciesAndPriceBookDisplayCurrency` | Currencies |
 | `AddCommercialPriceLists` | Commercial lists |
 | `AddVictoryReportSnapshots` | Victory snapshots |
+| `AddVictorySnapshotFormulaCode` | Formula code, book side, archived brief |
 
 Source: `src/CostWise.Infrastructure/Data/Migrations/`.
 
