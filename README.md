@@ -15,13 +15,13 @@ Windows WPF app for fish feed formulations, costing, and pricing.
 dotnet run --project src/CostWise.App
 ```
 
-## Publish (production 1.0.1)
+## Publish (production 1.0.3)
 
 ```bash
 dotnet publish src/CostWise.App/CostWise.App.csproj -p:PublishProfile=Win64Folder
 ```
 
-Output: `artifacts/release/1.0.1/` (self-contained **folder** publish, win-x64 — used by Velopack).
+Output: `artifacts/release/1.0.3/` (self-contained **folder** publish, win-x64 — used by Velopack).
 
 ## Installer and updates (Velopack — primary)
 

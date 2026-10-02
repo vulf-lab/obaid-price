@@ -24,9 +24,13 @@ public sealed class UpdateService
         get
         {
             var asm = Assembly.GetExecutingAssembly();
-            return asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
-                   ?? asm.GetName().Version?.ToString(3)
-                   ?? "0.0.0";
+            var raw = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                      ?? asm.GetName().Version?.ToString(3)
+                      ?? "0.0.0";
+            var plus = raw.IndexOf('+');
+            if (plus >= 0)
+                raw = raw[..plus];
+            return raw.Trim();
         }
     }
 

@@ -5,6 +5,23 @@ All notable changes to OBAID Pricing are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] - 2026-10-02
+
+### Added
+
+- Saved briefs tab to open, download, or delete past Victory price lists.
+- Use a saved brief as the Last Price comparison.
+
+### Fixed
+
+- Last Price still matches after a formula or price book is replaced, using formula code and book side.
+
+## [1.0.2] - 2026-07-31
+
+### Fixed
+
+- Settings version display shows `1.0.2` only (no git commit hash suffix).
+
 ## [1.0.1] - 2026-07-31
 
 ### Added

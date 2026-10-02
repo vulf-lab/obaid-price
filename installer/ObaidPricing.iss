@@ -7,12 +7,12 @@
 ; Or configure SignTool below once certificates are available.
 
 #define MyAppName "OBAID Pricing"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.3"
 #define MyAppPublisher "OBAID"
 #define MyAppURL ""
 #define MyAppExeName "ObaidPricing.exe"
 #define MyAppId "{{A7E3C91D-4B2F-4E8A-9C1D-6F0E5B8A2D71}"
-#define PublishDir "..\artifacts\release\1.0.1"
+#define PublishDir "..\artifacts\release\1.0.3"
 #define OutputDir "..\artifacts\installer"
 
 [Setup]
